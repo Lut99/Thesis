@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   16/04/2020, 23:03:46
+ *   17/04/2020, 00:28:21
  * Auto updated?
  *   Yes
  *
@@ -33,7 +33,7 @@ typedef struct MATRIX {
 matrix* create_empty_matrix(size_t rows, size_t cols);
 
 /* Creates a new matrix object from given multi-dimensional array. */
-matrix* create_matrix(double* data, size_t rows, size_t cols);
+matrix* create_matrix(size_t rows, size_t cols, double data[rows][cols]);
 
 /* Destroys a given matrix object. */
 void destroy_matrix(matrix* m);
