@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   4/19/2020, 12:01:30 AM
+ *   4/20/2020, 12:00:13 AM
  * Auto updated?
  *   Yes
  *
@@ -15,6 +15,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "Matrix.h"
 
@@ -31,7 +32,6 @@ matrix* create_empty_matrix(size_t rows, size_t cols) {
     // Return it
     return to_ret;
 }
-
 matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
     // Create an empty matrix with the same dimensions
     matrix* to_ret = create_empty_matrix(rows, cols);
@@ -46,18 +46,44 @@ matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
     // Return
     return to_ret;
 }
+matrix* create_vector(size_t rows, const double data[rows]) {
+    // Create an empty matrix with the correct dimensions
+    matrix* to_ret = create_empty_matrix(rows, 1);
 
-matrix* copy_matrix(const matrix* m) {
-    // Create an empty matrix with the same dimensions
-    matrix* to_ret = create_empty_matrix(m->rows, m->cols);
-
-    // Copy the data
-    for (size_t i = 0; i < m->rows * m->cols; i++) {
-        to_ret->data[i] = m->data[i];
+    // Copy the data from the given pointer
+    for (size_t i = 0; i < rows; i++) {
+        to_ret->data[i] = data[i];
     }
 
     // Return
     return to_ret;
+}
+
+matrix* copy_matrix(matrix* target, const matrix* source) {
+    // Sanity check that the matrices are correctly sized
+    if (target->rows != source->rows || target->cols != source->cols) {
+        fprintf(stderr, "ERROR: copy_matrix: matrix target (%ldx%ld) and source (%ldx%ld) do not have the same sizes\n",
+                target->rows,
+                target->cols,
+                source->rows,
+                source->cols);
+        return NULL;
+    }
+
+    // Copy the data
+    for (size_t i = 0; i < target->rows * target->cols; i++) {
+        target->data[i] = source->data[i];
+    }
+
+    // Return the target for chaining
+    return target;
+}
+matrix* copy_matrix_new(const matrix* m) {
+    // Create an empty matrix with the same dimensions
+    matrix* to_ret = create_empty_matrix(m->rows, m->cols);
+
+    // Copy the data and return
+    return copy_matrix(to_ret, m);
 }
 
 void destroy_matrix(matrix* m) {
@@ -83,6 +109,22 @@ matrix* matrix_transpose(const matrix* m) {
 
     // Return
     return to_ret;
+}
+
+matrix* matrix_add_c(const matrix* m1, double c) {
+    // Create a new matrix, copy the the addition for each element and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = m1->data[i] + c;
+    }
+    return to_ret;
+}
+matrix* matrix_add_c_inplace(matrix* m1, double c) {
+    // Add c to each element of m1, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] += c;
+    }
+    return m1;
 }
 
 matrix* matrix_add(const matrix* m1, const matrix* m2) {
@@ -114,52 +156,58 @@ matrix* matrix_add_inplace(matrix* m1, const matrix* m2) {
         return NULL;
     }
 
-    // Add each element of m1 to m2, then return m1 to allow chaining
+    // Add each element of m2 to m1, then return m1 to allow chaining
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
         m1->data[i] += m2->data[i];
     }
     return m1;
 }
 
-matrix* matrix_mul_s(const matrix* m1, double s) {
-    // Create a new matrix, copy the the multiplication of each element of m1 and s and return
+matrix* matrix_sub1_c(const matrix *m1, double c) {
+    // Create a new matrix, copy m1i - c of each element and return
     matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
-        to_ret->data[i] = s * m1->data[i];
+        to_ret->data[i] = m1->data[i] - c;
     }
     return to_ret;
 }
-matrix* matrix_mul_s_inplace(matrix* m1, double s) {
-    // Multiply each element of m1 with s, then return m1 to allow chaining
+matrix* matrix_sub1_c_inplace(matrix *m1, double c) {
+    // Replace every element of m1 with m1i - c, then return m1 to allow chaining
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
-        m1->data[i] *= s;
+        m1->data[i] -= c;
+    }
+    return m1;
+}
+matrix* matrix_sub2_c(double c, const matrix *m1) {
+    // Create a new matrix, copy c - m1i of each element and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = c - m1->data[i];
+    }
+    return to_ret;
+}
+matrix* matrix_sub2_c_inplace(double c, matrix *m1) {
+    // Replace every element of m1 with c - m1i, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] = c - m1->data[i];
     }
     return m1;
 }
 
-matrix* matrix_matmul(const matrix* m1, const matrix* m2) {
-    // Sanity check that the matrices are correctly sized
-    if (m1->cols != m2->rows) {
-        fprintf(stderr, "ERROR: matrix_matmul: matrix m1 (%ldx%ld) and m2 (%ldx%ld) have illegal sizes for matrix multiplication\n",
-                m1->rows,
-                m1->cols,
-                m2->rows,
-                m2->cols);
-        return NULL;
-    }
-
-    // Perform the matrix multiplication and store the result in to_ret, then return
-    matrix* to_ret = create_empty_matrix(m1->rows, m2->cols);
-    for (size_t y = 0; y < m1->rows; y++) {
-        for (size_t x = 0; x < m2->cols; x++) {
-            double sum = 0;
-            for (size_t i = 0; i < m1->cols; i++) {
-                sum += m1->data[y * m1->cols + i] * m2->data[i * m2->cols + x];
-            }
-            to_ret->data[y * m1->cols + x] = sum;
-        }
+matrix* matrix_mul_c(const matrix* m1, double c) {
+    // Create a new matrix, copy the the multiplication of each element of m1 and c and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = m1->data[i] * c;
     }
     return to_ret;
+}
+matrix* matrix_mul_c_inplace(matrix* m1, double c) {
+    // Multiply each element of m1 with c, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] *= c;
+    }
+    return m1;
 }
 
 matrix* matrix_mul(const matrix* m1, const matrix* m2) {
@@ -198,6 +246,31 @@ matrix* matrix_mul_inplace(matrix* m1, const matrix* m2) {
     return m1;
 }
 
+matrix* matrix_matmul(const matrix* m1, const matrix* m2) {
+    // Sanity check that the matrices are correctly sized
+    if (m1->cols != m2->rows) {
+        fprintf(stderr, "ERROR: matrix_matmul: matrix m1 (%ldx%ld) and m2 (%ldx%ld) have illegal sizes for matrix multiplication\n",
+                m1->rows,
+                m1->cols,
+                m2->rows,
+                m2->cols);
+        return NULL;
+    }
+
+    // Perform the matrix multiplication and store the result in to_ret, then return
+    matrix* to_ret = create_empty_matrix(m1->rows, m2->cols);
+    for (size_t y = 0; y < m1->rows; y++) {
+        for (size_t x = 0; x < m2->cols; x++) {
+            double sum = 0;
+            for (size_t i = 0; i < m1->cols; i++) {
+                sum += m1->data[y * m1->cols + i] * m2->data[i * m2->cols + x];
+            }
+            to_ret->data[y * m1->cols + x] = sum;
+        }
+    }
+    return to_ret;
+}
+
 matrix* matrix_tensor(const matrix* m1, const matrix* m2) {
     // Create a matrix to return
     size_t w = m1->cols * m2->cols;
@@ -220,6 +293,38 @@ matrix* matrix_tensor(const matrix* m1, const matrix* m2) {
         }
     }
     return to_ret;
+}
+
+matrix* matrix_inv(const matrix *m1) {
+    // Create a new matrix, copy the the inversion of each element of m1 and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = 1 / m1->data[i];
+    }
+    return to_ret;
+}
+matrix* matrix_inv_inplace(matrix *m1) {
+    // Inverse each element of m1, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] = 1 / m1->data[i];
+    }
+    return m1;
+}
+
+matrix* matrix_exp(const matrix *m1) {
+    // Create a new matrix, copy the the exp of each element of m1 and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = exp(m1->data[i]);
+    }
+    return to_ret;
+}
+matrix* matrix_exp_inplace(matrix *m1) {
+    // Take exp of each element, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] = exp(m1->data[i]);
+    }
+    return m1;
 }
 
 matrix* matrix_concat_h(const matrix* m1, const matrix* m2) {

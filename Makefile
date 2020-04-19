@@ -14,16 +14,23 @@ INCLUDES=-I $(LIB)/include
 default: all
 
 $(OBJ)/%.o: $(LIB)/%.c
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< -lm
+
+$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
+	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
 
 test_matrix: $(TST)/test_matrix.c $(OBJ)/Matrix.o
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o -lm
 
-tests: test_matrix
+test_nn: $(TST)/test_nn.c $(OBJ)/NeuralNetwork.a
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/NeuralNetwork.a -lm
+
+tests: test_matrix test_nn
 	$(info )
 	$(info Running tests...)
 	$(info )
 	$(TST_BIN)/test_matrix.out
+	$(TST_BIN)/test_nn.out
 
 all: tests
 

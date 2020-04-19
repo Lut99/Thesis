@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "*.cvc": "c",
-        "neuralnetwork.h": "c"
+        "neuralnetwork.h": "c",
+        "cmath": "c",
+        "stdio.h": "c"
     }
 }

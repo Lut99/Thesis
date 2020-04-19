@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   4/18/2020, 11:31:38 PM
+ *   4/19/2020, 10:53:05 PM
  * Auto updated?
  *   Yes
  *
@@ -16,9 +16,11 @@
 #ifndef _FUNCTIONS_H
 #define _FUNCTIONS_H
 
-/* Implements the sigmoid function working on a scalar. */
-double sigmoid(double z);
-/* Implements the derivative of the sigmoid function working on a scalar. */
-double dydx_sigmoid(double z);
+#include "Matrix.h"
+
+/* Implements the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* sigmoid(matrix* z);
+/* Implements the derivative of the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* dydx_sigmoid(matrix* z);
 
 #endif

@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   4/19/2020, 12:01:31 AM
+ *   4/19/2020, 11:52:57 PM
  * Auto updated?
  *   Yes
  *
@@ -31,12 +31,15 @@ typedef struct MATRIX {
 
 /* Creates a new matrix object with the given size. Values are uninitialised, and note that this object has to be deallocated. */
 matrix* create_empty_matrix(size_t rows, size_t cols);
-
 /* Creates a new matrix object from given multi-dimensional array. */
 matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]);
+/* Creates a new matrix object from given single-dimensional array. Note that the resulting matrix will always have one column, i.e., it's vertical. */
+matrix* create_vector(size_t rows, const double data[rows]);
 
+/* Copies given source matrix into the target matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* copy_matrix(matrix* target, const matrix* source);
 /* Copies given matrix into a new matrix. */
-matrix* copy_matrix(const matrix* m);
+matrix* copy_matrix_new(const matrix* m);
 
 /* Destroys a given matrix object. */
 void destroy_matrix(matrix* m);
@@ -48,26 +51,50 @@ void destroy_matrix(matrix* m);
 /* Transposes given matrix and returns the result as a new matrix. */
 matrix* matrix_transpose(const matrix *m);
 
+/* Adds a constant to given matrix and returns the result in a new matrix. */
+matrix* matrix_add_c(const matrix *m1, double c);
+/* Adds a constant to given matrix and returns the result in the given matrix. */
+matrix* matrix_add_c_inplace(matrix* m1, double c);
+
 /* Adds two matrices and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_add(const matrix *m1, const matrix *m2);
 /* Adds two matrices and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_add_inplace(matrix* m1, const matrix *m2);
 
-/* Multiplies given matrix with a scaler and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul_s(const matrix *m1, double s);
-/* Multiplies given matrix with a scaler and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul_s_inplace(matrix* m1, double s);
+/* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
+matrix* matrix_sub1_c(const matrix *m1, double c);
+/* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
+matrix* matrix_sub1_c_inplace(matrix *m1, double c);
+/* Subtracts given matrix from given constant (c - m1). Returns the result in the given matrix. */
+matrix* matrix_sub2_c(double c, const matrix *m1);
+/* Subtracts given matrix from given constant (c - m1). Returns the result in the given matrix. */
+matrix* matrix_sub2_c_inplace(double c, matrix *m1);
 
-/* Performs a matrix multiplication on given matrices. Returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_matmul(const matrix *m1, const matrix *m2);
+/* Multiplies given matrix with a scaler and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_mul_c(const matrix *m1, double c);
+/* Multiplies given matrix with a scaler and returns the result in the given matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_mul_c_inplace(matrix* m1, double c);
 
 /* Performs an element-wise multiplication on given matrices. Returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_mul(const matrix *m1, const matrix *m2);
 /* Performs an element-wise multiplication on given matrices. Returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_mul_inplace(matrix* m1, const matrix *m2);
 
+/* Performs a matrix multiplication on given matrices. Returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_matmul(const matrix *m1, const matrix *m2);
+
 /* Returns a new matrix containing the tensor product of the given two matrices. */
 matrix* matrix_tensor(const matrix *m1, const matrix *m2);
+
+/* Inverts all elements in given matrix, and returns the result in a new matrix. */
+matrix* matrix_inv(const matrix* m1);
+/* Inverts all elements in given matrix, and returns the result in the given matrix. */
+matrix* matrix_inv_inplace(matrix* m1);
+
+/* Takes the exponent of each element, e.g., x = e^x. Returns the result in a new matrix. */
+matrix* matrix_exp(const matrix* m1);
+/* Takes the exponent of each element, e.g., x = e^x. Returns the result in the given matrix. */
+matrix* matrix_exp_inplace(matrix* m1);
 
 /* Concatenates two matrices horizontally. The result is returned in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_concat_h(const matrix *m1, const matrix *m2);

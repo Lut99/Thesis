@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   4/18/2020, 11:17:37 PM
+ *   4/19/2020, 11:25:14 PM
  * Auto updated?
  *   Yes
  *
@@ -107,6 +107,45 @@ bool test_transpose() {
     return succes;
 }
 
+/* Tests matrix constant addition. */
+bool test_constant_add() {
+    // Set the begin array and expected array
+    double start1[5][3] = {{ 1,  2,  3},
+                           { 4,  5,  6},
+                           { 7,  8,  9},
+                           {10, 11, 12},
+                           {13, 14, 15}};
+    double start2 = 2;
+    double expect[5][3] = {{ 3,  4,  5},
+                           { 6,  7,  8},
+                           { 9, 10, 11},
+                           {12, 13, 14},
+                           {15, 16, 17}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(5, 3, start1);
+
+    // Do the addition (also in-place)
+    matrix* m_res = matrix_add_c(m_1, start2);
+    matrix_add_c_inplace(m_1, start2);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(5, 3, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting constant addition failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
 /* Tests matrix addition. */
 bool test_addition() {
     // Set the begin array and expected array
@@ -123,7 +162,7 @@ bool test_addition() {
 
     // Create the two matrices
     matrix* m_1 = create_matrix(5, 3, start1);
-    matrix* m_2 = copy_matrix(m_1);
+    matrix* m_2 = copy_matrix_new(m_1);
 
     // Do the addition (also in-place)
     matrix* m_res = matrix_add(m_1, m_2);
@@ -147,8 +186,61 @@ bool test_addition() {
     return succes;
 }
 
-/* Tests matrix scalar multiplication. */
-bool test_scalar_mult() {
+/* Tests matrix constant subtraction. */
+bool test_constant_sub() {
+    // Set the begin array and expected array
+    double start1[5][3] = {{ 1,  2,  3},
+                           { 4,  5,  6},
+                           { 7,  8,  9},
+                           {10, 11, 12},
+                           {13, 14, 15}};
+    double start2 = 2;
+    double expect1[5][3] = {{-1,  0,  1},
+                            { 2,  3,  4},
+                            { 5,  6,  7},
+                            { 8,  9, 10},
+                            {11, 12, 13}};
+    double expect2[5][3] = {{  1,   0,  -1},
+                            { -2,  -3,  -4},
+                            { -5,  -6,  -7},
+                            { -8,  -9, -10},
+                            {-11, -12, -13}};
+
+    // Create the matrix, but create a copy to test the other way around
+    matrix* m_1 = create_matrix(5, 3, start1);
+    matrix* m_2 = copy_matrix_new(m_1);
+
+    // Do the subtraction both ways (also in-place)
+    matrix* m_res1 = matrix_sub1_c(m_1, start2);
+    matrix_sub1_c_inplace(m_1, start2);
+    
+    matrix* m_res2 = matrix_sub2_c(start2, m_2);
+    matrix_sub2_c_inplace(start2, m_2);
+
+    // Compare if they are equal
+    matrix* m_exp1 = create_matrix(5, 3, expect1);
+    matrix* m_exp2 = create_matrix(5, 3, expect2);
+
+    bool succes = true;
+    if (!matrix_equals(m_res1, m_exp1) || !matrix_equals(m_1, m_exp1) ||
+        !matrix_equals(m_res2, m_exp2) || !matrix_equals(m_2, m_exp2)) {
+        succes = false;
+        fprintf(stderr, "\nTesting constant subtraction failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_2);
+    destroy_matrix(m_res1),
+    destroy_matrix(m_res2),
+    destroy_matrix(m_exp1);
+    destroy_matrix(m_exp2);
+
+    return succes;
+}
+
+/* Tests matrix constant multiplication. */
+bool test_constant_mul() {
     // Set the begin array and expected array
     double start1[5][3] = {{ 1,  2,  3},
                            { 4,  5,  6},
@@ -166,8 +258,8 @@ bool test_scalar_mult() {
     matrix* m_1 = create_matrix(5, 3, start1);
 
     // Do the addition (also in-place)
-    matrix* m_res = matrix_mul_s(m_1, start2);
-    matrix_mul_s_inplace(m_1, start2);
+    matrix* m_res = matrix_mul_c(m_1, start2);
+    matrix_mul_c_inplace(m_1, start2);
 
     // Compare if they are equal
     matrix* m_exp = create_matrix(5, 3, expect);
@@ -175,11 +267,51 @@ bool test_scalar_mult() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
-        fprintf(stderr, "\nTesting scalar multiplication failed.\n\n");
+        fprintf(stderr, "\nTesting constant multiplication failed.\n\n");
     }
 
     // Clean up and return the succes status
     destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
+/* Tests matrix element-wise multiplication. */
+bool test_elem_mult() {
+    // Set the begin array and expected array          
+    double start1[5][3] = {{ 1,  2,  3},
+                           { 4,  5,  6},
+                           { 7,  8,  9},
+                           {10, 11, 12},
+                           {13, 14, 15}};
+    double expect[5][3] = {{  1,   4,   9},
+                           { 16,  25,  36},
+                           { 49,  64,  81},
+                           {100, 121, 144},
+                           {169, 196, 225}};
+
+    // Create the two matrices
+    matrix* m_1 = create_matrix(5, 3, start1);
+    matrix* m_2 = copy_matrix_new(m_1);
+
+    // Do the matrix multiplication, also inplace
+    matrix *m_res = matrix_mul(m_1, m_2);
+    matrix_mul_inplace(m_1, m_2);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(5, 3, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting element-wise multiplication failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_2);
     destroy_matrix(m_res),
     destroy_matrix(m_exp);
 
@@ -217,46 +349,6 @@ bool test_matmult() {
     if (!matrix_equals(m_res, m_exp)) {
         succes = false;
         fprintf(stderr, "\nTesting matrix multiplication failed.\n\n");
-    }
-
-    // Clean up and return the succes status
-    destroy_matrix(m_1);
-    destroy_matrix(m_2);
-    destroy_matrix(m_res),
-    destroy_matrix(m_exp);
-
-    return succes;
-}
-
-/* Tests matrix element-wise multiplication. */
-bool test_elem_mult() {
-    // Set the begin array and expected array          
-    double start1[5][3] = {{ 1,  2,  3},
-                           { 4,  5,  6},
-                           { 7,  8,  9},
-                           {10, 11, 12},
-                           {13, 14, 15}};
-    double expect[5][3] = {{  1,   4,   9},
-                           { 16,  25,  36},
-                           { 49,  64,  81},
-                           {100, 121, 144},
-                           {169, 196, 225}};
-
-    // Create the two matrices
-    matrix* m_1 = create_matrix(5, 3, start1);
-    matrix* m_2 = copy_matrix(m_1);
-
-    // Do the matrix multiplication, also inplace
-    matrix *m_res = matrix_mul(m_1, m_2);
-    matrix_mul_inplace(m_1, m_2);
-
-    // Compare if they are equal
-    matrix* m_exp = create_matrix(5, 3, expect);
-
-    bool succes = true;
-    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
-        succes = false;
-        fprintf(stderr, "\nTesting element-wise multiplication failed.\n\n");
     }
 
     // Clean up and return the succes status
@@ -308,6 +400,74 @@ bool test_tensor() {
     return succes;
 }
 
+/* Tests matrix inverse. */
+bool test_inverse() {
+    // Set the begin array and expected array          
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3][4] = {{1.0 / 1, 1.0 /  2, 1.0 /  3, 1.0 /  4},
+                           {1.0 / 5, 1.0 /  6, 1.0 /  7, 1.0 /  8},
+                           {1.0 / 9, 1.0 / 10, 1.0 / 11, 1.0 / 12}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Do the inverse, also in-place
+    matrix *m_res = matrix_inv(m_1);
+    matrix_inv_inplace(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(3, 4, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting inverse failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
+/* Tests matrix exp. */
+bool test_exponent() {
+    // Set the begin array and expected array          
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3][4] = {{exp(1), exp( 2), exp( 3), exp( 4)},
+                           {exp(5), exp( 6), exp( 7), exp( 8)},
+                           {exp(9), exp(10), exp(11), exp(12)}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Do the inverse, also in-place
+    matrix *m_res = matrix_exp(m_1);
+    matrix_exp_inplace(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(3, 4, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting exponent failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
 /* Tests matrix horizontal concatenation. */
 bool test_concat() {
     // Set the begin array and expected array          
@@ -347,44 +507,71 @@ bool test_concat() {
 }
 
 
+
+/***** MAIN *****/
+
 int main() {
-    printf("  Testing transposing...                 ");
+    printf("  Testing transposing...                   ");
     if (!test_transpose()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing addition...                    ");
+    printf("  Testing matrix-constant addition...      ");
+    if (!test_constant_add()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing addition...                      ");
     if (!test_addition()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing matrix-scalar multiplication...");
-    if (!test_scalar_mult()) {
+    printf("  Testing matrix-constant subtraction...   ");
+    if (!test_constant_sub()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing matrix multiplication...       ");
-    if (!test_matmult()) {
+    printf("  Testing matrix-constant multiplication...");
+    if (!test_constant_mul()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing element-wise multiplication... ");
+    printf("  Testing element-wise multiplication...   ");
     if (!test_elem_mult()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing tensor product...              ");
+    printf("  Testing matrix multiplication...         ");
+    if (!test_matmult()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing tensor product...                ");
     if (!test_tensor()) {
         return -1;
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing concatenation...               ");
+    printf("  Testing inverse...                       ");
+    if (!test_inverse()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing exponent...                      ");
+    if (!test_exponent()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing concatenation...                 ");
     if (!test_concat()) {
         return -1;
     }

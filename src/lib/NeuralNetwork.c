@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   4/19/2020, 12:05:57 AM
+ *   4/20/2020, 12:04:41 AM
  * Auto updated?
  *   Yes
  *
@@ -17,12 +17,13 @@
 
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
 
-#include "Functions.h"
 #include "NeuralNetwork.h"
 
-#define WEIGHTS_MIN -3
-#define WEIGHTS_MAX 3
+#define WEIGHTS_MIN -3.0
+#define WEIGHTS_MAX 3.0
+#define BIAS 1.0
 
 
 /***** HELPER FUNCTIONS *****/
@@ -39,6 +40,23 @@ matrix* initialise_weights(size_t input_size, size_t output_size) {
     }
 
     // Return the weights
+    return to_ret;
+}
+
+/* Adds a bias node to the given n x 1 matrix (vector). The bias value is set by the BIAS macro. Note that this function deallocates the given pointer. */
+matrix* add_bias(matrix* v) {
+    matrix* to_ret = create_empty_matrix(v->rows + 1, 1);
+
+    // Add the bias node, then copy all the data
+    to_ret->data[0] = BIAS;
+    for (size_t i = 0; i < v->rows; i++) {
+        to_ret->data[i + 1] = v->data[i];
+    }
+
+    // Destroy the old vector
+    destroy_matrix(v);
+
+    // Return
     return to_ret;
 }
 
@@ -75,8 +93,8 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
 
 void destroy_nn(neural_net* nn) {
     free(nn->nodes_per_layer);
-    for (size_t i = 0; i < nn->n_weights) {
-        free(nn->weights[i]);
+    for (size_t i = 0; i < nn->n_weights; i++) {
+        destroy_matrix(nn->weights[i]);
     }
     free(nn->weights);
     free(nn);
@@ -86,6 +104,27 @@ void destroy_nn(neural_net* nn) {
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-void nn_activate(neural_net* nn, matrix* output, const matrix* input, double (*activation_func)(double z)) {
-    // TODO
+void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*activation_func)(matrix* z)) {
+    // Copy the input matrix to be sure we do not deallocate it
+    matrix* input2 = copy_matrix_new(input);
+
+    // Iterate over each layer to feedforward through the network
+    for (size_t i = 0; i < nn->n_weights; i++) {
+        // First, add a bias node to the input of this layer
+        input2 = add_bias(input2);
+        // Then, compute the input values for the nodes in this layer
+        matrix* z = matrix_matmul(nn->weights[i], input2);
+        // Apply the activation function
+        activation_func(z);
+        // Deallocate the old input matrix
+        destroy_matrix(input2);
+        // Set z as the new one
+        input2 = z;
+    }
+
+    // Copy the output to the output matrix
+    copy_matrix(output, input2);
+    
+    // Cleanup
+    destroy_matrix(input2);
 }

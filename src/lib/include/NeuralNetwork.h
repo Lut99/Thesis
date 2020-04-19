@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   4/19/2020, 12:03:49 AM
+ *   4/19/2020, 11:23:25 PM
  * Auto updated?
  *   Yes
  *
@@ -22,7 +22,7 @@
 
 
 /* Defines the NeuralNetwork. */
-typedef NEURALNET {
+typedef struct NEURALNET {
     /* The number of layers in the neural network. Note that this includes input and output layers. */
     size_t n_layers;
     /* The number of nodes per layer in the network. Note that this includes input and output layers. */
@@ -48,7 +48,7 @@ void destroy_nn(neural_net* nn);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-/* Activates the neural network using the given activation function and using given inputs. The results are stored in given outputs matrix. */
-void nn_activate(neural_net* nn, matrix* output, const matrix* input, double (*activation_func)(double z));
+/* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs. The results are stored in given outputs matrix. */
+void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*activation_func)(matrix* z));
 
 #endif
