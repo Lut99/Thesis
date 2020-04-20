@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   20/04/2020, 14:14:07
+ *   20/04/2020, 15:52:08
  * Auto updated?
  *   Yes
  *
@@ -382,7 +382,7 @@ matrix* matrix_square_inplace(matrix* m1) {
 
 double matrix_sum(const matrix* m1) {
     // Loop through all elements to sum them
-    double total;
+    double total = 0;
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
         total += m1->data[i];
     }
@@ -413,4 +413,42 @@ matrix* matrix_concat_h(const matrix* m1, const matrix* m2) {
         }
     }
     return to_ret;
+}
+
+
+
+/***** DEBUG TOOLS *****/
+
+void matrix_print(matrix* m) {
+    // Early quit if there is nothing to print
+    if (m->rows == 0 || m->cols == 0) {
+        fprintf(stderr, "(empty)\n");
+        return;
+    }
+    for (size_t y = 0; y < m->rows; y++) {
+        fprintf(stderr, "[%7.2f", m->data[y * m->cols]);
+        for (size_t x = 1; x < m->cols; x++) {
+            fprintf(stderr, " %7.2f", m->data[y * m->cols + x]);
+        }
+        fprintf(stderr, "]\n");
+    }
+}
+
+bool matrix_equals(matrix* m1, matrix* m2) {
+    // Check if they are the same size
+    if (m1->rows != m2->rows || m1->cols != m2->cols) {
+        return false;
+    }
+
+    // Check each element
+    for (size_t y = 0; y < m1->rows; y++) {
+        for (size_t x = 0; x < m1->cols; x++) {
+            if (m1->data[y * m1->cols + x] != m2->data[y * m2->cols + x]) {
+                return false;
+            }
+        }
+    }
+
+    // Match!
+    return true;
 }

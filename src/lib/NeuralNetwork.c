@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   20/04/2020, 13:10:58
+ *   20/04/2020, 16:11:27
  * Auto updated?
  *   Yes
  *
@@ -43,14 +43,17 @@ matrix* initialise_weights(size_t input_size, size_t output_size) {
     return to_ret;
 }
 
-/* Adds a bias node to the given n x 1 matrix (vector). The bias value is set by the BIAS macro. Note that this function deallocates the given pointer. */
+/* Adds a bias node at the start of each column to the given matrix. The bias value is set by the BIAS macro. Note that this function deallocates the given pointer. */
 matrix* add_bias(matrix* v) {
-    matrix* to_ret = create_empty_matrix(v->rows + 1, 1);
+    matrix* to_ret = create_empty_matrix(v->rows + 1, v->cols);
 
-    // Add the bias node, then copy all the data
-    to_ret->data[0] = BIAS;
+    // First, set all biases to the top row
+    for (size_t i = 0; i < v->cols; i++) {
+        to_ret->data[0] = BIAS;
+    }
+    // Then, copy the rest of the data
     for (size_t i = 0; i < v->rows; i++) {
-        to_ret->data[i + 1] = v->data[i];
+        to_ret->data[v->cols + i] = v->data[i];
     }
 
     // Destroy the old vector
@@ -104,7 +107,7 @@ void destroy_nn(neural_net* nn) {
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*activation_func)(matrix* z)) {
+matrix* nn_activate(neural_net* nn, const matrix* input, matrix* (*activation_func)(matrix* z)) {
     // Copy the input matrix to be sure we do not deallocate it
     matrix* input2 = copy_matrix_new(input);
 
@@ -122,18 +125,17 @@ void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*
         input2 = z;
     }
 
-    // Copy the output to the output matrix
-    copy_matrix(output, input2);
-    
-    // Cleanup
-    destroy_matrix(input2);
+    return input2;
 }
 
-void nn_train_pass(neural_net* nn, const matrix* input, const matrix* expected, matrix* (*activation_func)(matrix* z), double (*loss_func)(matrix* output, matrix* expected)) {
+void nn_train_pass(neural_net* nn, const matrix* input, const matrix* expected, matrix* (*activation_func)(matrix* z), double (*loss_func)(matrix* output, const matrix* expected)) {
     // First, perform a forward pass with the given inputs
     matrix* output = create_empty_matrix(nn->nodes_per_layer[nn->n_layers - 1], 1);
-    nn_activate(nn, output, input, activation_func);
+    // nn_activate(nn, output, input, activation_func);
 
     // Second, compute the cost of the inputs
     double cost = (*loss_func)(output, expected);
+
+    // Compute the difference in weights
+    
 }

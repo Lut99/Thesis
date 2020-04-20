@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   20/04/2020, 14:13:21
+ *   20/04/2020, 15:51:51
  * Auto updated?
  *   Yes
  *
@@ -17,6 +17,7 @@
 #define _MATRIX_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 /* The struct that contains all data for a matrix, i.e., the size and a matrix. */
 typedef struct MATRIX {
@@ -70,6 +71,11 @@ matrix* matrix_sub2_c(double c, const matrix *m1);
 /* Subtracts given matrix from given constant (c - m1). Returns the result in the given matrix. */
 matrix* matrix_sub2_c_inplace(double c, matrix *m1);
 
+/* Subtracts the second matrix from the first and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_sub(const matrix *m1, const matrix *m2);
+/* Subtracts the second matrix from the first and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_sub_inplace(matrix* m1, const matrix *m2);
+
 /* Multiplies given matrix with a scaler and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_mul_c(const matrix *m1, double c);
 /* Multiplies given matrix with a scaler and returns the result in the given matrix. Returns NULL and prints to stderr if the sizes are not correct. */
@@ -106,5 +112,14 @@ double matrix_sum(const matrix* m1);
 
 /* Concatenates two matrices horizontally. The result is returned in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_concat_h(const matrix *m1, const matrix *m2);
+
+
+/***** DEBUG TOOLS *****/
+
+/* Prints a matrix to stderr. */
+void matrix_print(matrix* m);
+
+/* Checks if two matrices are the same and, if not, prints them both out with an error. */
+bool matrix_equals(matrix* m1, matrix* m2);
 
 #endif

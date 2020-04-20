@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   20/04/2020, 14:17:38
+ *   20/04/2020, 16:00:19
  * Auto updated?
  *   Yes
  *
@@ -18,56 +18,6 @@
 #include <math.h>
 
 #include "Matrix.h"
-
-
-/***** TOOLS *****/
-
-/* Prints a matrix to stderr. */
-void matrix_print(matrix* m) {
-    // Early quit if there is nothing to print
-    if (m->rows == 0 || m->cols == 0) {
-        fprintf(stderr, "(empty)\n");
-        return;
-    }
-    for (size_t y = 0; y < m->rows; y++) {
-        fprintf(stderr, "[%7.2f", m->data[y * m->cols]);
-        for (size_t x = 1; x < m->cols; x++) {
-            fprintf(stderr, " %7.2f", m->data[y * m->cols + x]);
-        }
-        fprintf(stderr, "]\n");
-    }
-}
-
-/* Checks if two matrices are the same and, if not, prints them both out with an error. */
-bool matrix_equals(matrix* m1, matrix* m2) {
-    // Check if they are the same size
-    if (m1->rows != m2->rows || m1->cols != m2->cols) {
-        printf(" [FAIL]\n");
-        fprintf(stderr, "Matrices are not the same (incorrect size):\n\nMatrix 1:\n");
-        matrix_print(m1);
-        fprintf(stderr, "\nMatrix 2:\n");
-        matrix_print(m2);
-        return false;
-    }
-
-    // Check each element
-    for (size_t y = 0; y < m1->rows; y++) {
-        for (size_t x = 0; x < m1->cols; x++) {
-            if (m1->data[y * m1->cols + x] != m2->data[y * m2->cols + x]) {
-                printf(" [FAIL]\n");
-                fprintf(stderr, "Matrices are not the same (mismatching element at (%ld,%ld)):\n\nMatrix 1:\n",
-                        y, x);
-                matrix_print(m1);
-                fprintf(stderr, "\nMatrix 2:\n");
-                matrix_print(m2);
-                return false;
-            }
-        }
-    }
-
-    // Match!
-    return true;
-}
 
 
 /***** TEST FUNCTIONS *****/
@@ -85,23 +35,28 @@ bool test_transpose() {
                           {3, 6, 9, 12, 15}};
 
     // Create a matrix
-    matrix* m_res = create_matrix(5, 3, start);
+    matrix* m_1 = create_matrix(5, 3, start);
 
     // Transpose it
-    matrix* m_t = matrix_transpose(m_res);
+    matrix* m_res = matrix_transpose(m_1);
 
     // Compare if they are equal
     matrix* m_exp = create_matrix(3, 5, expec);
 
     bool succes = true;
-    if (!matrix_equals(m_t, m_exp)) {
+    if (!matrix_equals(m_res, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting transpose failed.\n\n");
     }
 
     // Clean up and return the succes status
+    destroy_matrix(m_1);
     destroy_matrix(m_res);
-    destroy_matrix(m_t);
     destroy_matrix(m_exp);
 
     return succes;
@@ -135,6 +90,17 @@ bool test_constant_add() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting constant addition failed.\n\n");
     }
 
@@ -174,6 +140,17 @@ bool test_addition() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting addition failed.\n\n");
     }
 
@@ -225,6 +202,27 @@ bool test_constant_sub() {
     if (!matrix_equals(m_res1, m_exp1) || !matrix_equals(m_1, m_exp1) ||
         !matrix_equals(m_res2, m_exp2) || !matrix_equals(m_2, m_exp2)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res1, m_exp1)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res1);
+        } else if (!matrix_equals(m_1, m_exp1)) {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        } else if (!matrix_equals(m_res2, m_exp2)) {
+            fprintf(stderr, "Got (reversed):\n");
+            matrix_print(m_res2);
+        } else {
+            fprintf(stderr, "Got (reversed, inplace):\n");
+            matrix_print(m_2);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        if (!matrix_equals(m_res1, m_exp1) || !matrix_equals(m_1, m_exp1)) {
+            matrix_print(m_exp1);
+        } else {
+            matrix_print(m_exp2);
+        }
         fprintf(stderr, "\nTesting constant subtraction failed.\n\n");
     }
 
@@ -267,6 +265,17 @@ bool test_subtraction() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting subtraction failed.\n\n");
     }
 
@@ -307,6 +316,17 @@ bool test_constant_mul() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting constant multiplication failed.\n\n");
     }
 
@@ -346,6 +366,17 @@ bool test_elem_mult() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting element-wise multiplication failed.\n\n");
     }
 
@@ -388,6 +419,11 @@ bool test_matmult() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting matrix multiplication failed.\n\n");
     }
 
@@ -428,6 +464,11 @@ bool test_tensor() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting tensor product failed.\n\n");
     }
 
@@ -463,6 +504,17 @@ bool test_inverse() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting inverse failed.\n\n");
     }
 
@@ -497,6 +549,17 @@ bool test_exponent() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting exponent failed.\n\n");
     }
 
@@ -531,6 +594,17 @@ bool test_square() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting square failed.\n\n");
     }
 
@@ -598,6 +672,11 @@ bool test_concat() {
     bool succes = true;
     if (!matrix_equals(m_res, m_exp)) {
         succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
         fprintf(stderr, "\nTesting horizontal concatenation failed.\n\n");
     }
 
@@ -687,7 +766,7 @@ int main() {
     }
     printf(" [ OK ]\n");
 
-    printf("  Testing sum...                        ");
+    printf("  Testing sum...                           ");
     if (!test_sum()) {
         return -1;
     }

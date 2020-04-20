@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   20/04/2020, 13:11:04
+ *   20/04/2020, 15:47:56
  * Auto updated?
  *   Yes
  *
@@ -48,10 +48,10 @@ void destroy_nn(neural_net* nn);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-/* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs. The results are stored in given outputs matrix. */
-void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*activation_func)(matrix* z));
+/* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs. The results are returned as newly allocated matrix. */
+matrix* nn_activate(neural_net* nn, const matrix* input, matrix* (*activation_func)(matrix* z));
 
 /* Performs a single forward-backward pass through the network. The activation function and loss functions should both work on matrices rather than single values. */
-void nn_train_pass(neural_net* nn, const matrix* input, const matrix* expected, matrix* (*activation_func)(matrix* z), double (*loss_func)(matrix* output, matrix* expected));
+void nn_train_pass(neural_net* nn, const matrix* input, const matrix* expected, matrix* (*activation_func)(matrix* z), double (*loss_func)(matrix* output, const matrix* expected));
 
 #endif
