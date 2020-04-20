@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   20/04/2020, 15:52:08
+ *   20/04/2020, 16:47:01
  * Auto updated?
  *   Yes
  *
@@ -360,6 +360,22 @@ matrix* matrix_exp_inplace(matrix *m1) {
     // Take exp of each element, then return m1 to allow chaining
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
         m1->data[i] = exp(m1->data[i]);
+    }
+    return m1;
+}
+
+matrix* matrix_ln(const matrix *m1) {
+    // Create a new matrix, copy the the ln of each element of m1 and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = log(m1->data[i]);
+    }
+    return to_ret;
+}
+matrix* matrix_ln_inplace(matrix *m1) {
+    // Take ln of each element, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] = log(m1->data[i]);
     }
     return m1;
 }

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   20/04/2020, 14:19:33
+ *   20/04/2020, 17:38:20
  * Auto updated?
  *   Yes
  *
@@ -32,8 +32,6 @@ matrix* sigmoid(matrix* z) {
 
 
 
-
-
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
 matrix* dydx_sigmoid(matrix* z) {
@@ -48,8 +46,6 @@ matrix* dydx_sigmoid(matrix* z) {
     
     return result;
 }
-
-
 
 
 
@@ -74,4 +70,58 @@ double mean_squared_error(matrix* output, const matrix* expected) {
     double sum = matrix_sum(output);
     // Return the result normalised
     return sum / expected->rows;
+}
+
+double other_cost_func (matrix* output, const matrix* expected) {
+    // Sanity check to make sure the matrices have the correct size
+    if (output->rows != expected->rows || output->cols != 1 || expected->cols != 1) {
+        fprintf(stderr, "ERROR: other_cost_func: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
+                output->rows,
+                output->cols,
+                expected->rows,
+                expected->cols);
+        return -1;
+    }
+    
+    // Compute ln(output)
+    matrix* output_ln = matrix_ln(output);
+    // Compute ln(1 - output)
+    matrix* output_ln_m1 = matrix_ln_inplace(matrix_sub2_c_inplace(1, output));
+    // Compute 1 - expected
+    matrix* expected_m1 = matrix_sub2_c(1, expected);
+
+    // Compute expected * ln(output)
+    matrix* term = matrix_mul(expected, output_ln);
+    // Compute (1 - expected) * ln(1 - output)
+    matrix* term2 = matrix_mul_inplace(expected_m1, output_ln_m1);
+    // Compute expected * ln(output) + (1 - expected) * ln(1 - output)
+    matrix_add_inplace(term, term2);
+    // Take the sum of this term
+    double cost = matrix_sum(term);
+    
+    // Cleanup
+    destroy_matrix(output_ln);
+    destroy_matrix(term);
+    destroy_matrix(term2);
+
+    // Return the negative cost
+    return -cost;
+}
+
+
+
+/***** COST FUNCTIONS (PARTIAL) DERIVATIVES *****/
+
+matrix* dydx_other_cost_func(const matrix* deltas, const matrix* output) {
+    // Take note that: deltas has shape 'n_nodes_next_layer x samples'
+    //                 output has shape 'n_nodes_this_layer x samples'
+    // Returning matrix should be: 'n_nodes_this_layer x n_nodes_next_layer'
+    matrix* output_T = matrix_transpose(output);
+    matrix* d_weights = matrix_matmul(deltas, output_T);
+
+    // Cleanup
+    destroy_matrix(output_T);
+    
+    // Return the new matrix
+    return d_weights;
 }

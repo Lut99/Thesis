@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   20/04/2020, 16:00:19
+ *   20/04/2020, 17:38:31
  * Auto updated?
  *   Yes
  *
@@ -571,6 +571,51 @@ bool test_exponent() {
     return succes;
 }
 
+/* Tests matrix log. */
+bool test_nat_log() {
+    // Set the begin array and expected array          
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3][4] = {{log(1), log( 2), log( 3), log( 4)},
+                           {log(5), log( 6), log( 7), log( 8)},
+                           {log(9), log(10), log(11), log(12)}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Do the inverse, also in-place
+    matrix *m_res = matrix_ln(m_1);
+    matrix_ln_inplace(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(3, 4, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
+        fprintf(stderr, "\nTesting natural logarithm failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
 /* Tests matrix square. */
 bool test_square() {
     // Set the begin array and expected array          
@@ -756,6 +801,12 @@ int main() {
 
     printf("  Testing exponent...                      ");
     if (!test_exponent()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing natural logarithm...             ");
+    if (!test_nat_log()) {
         return -1;
     }
     printf(" [ OK ]\n");

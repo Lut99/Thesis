@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   20/04/2020, 15:51:51
+ *   20/04/2020, 16:46:28
  * Auto updated?
  *   Yes
  *
@@ -101,6 +101,11 @@ matrix* matrix_inv_inplace(matrix* m1);
 matrix* matrix_exp(const matrix* m1);
 /* Takes the exponent of each element, e.g., x = e^x. Returns the result in the given matrix. */
 matrix* matrix_exp_inplace(matrix* m1);
+
+/* Takes the natural logarithm of each element. Returns the result in a new matrix. */
+matrix* matrix_ln(const matrix* m1);
+/* Takes the natural logarithm of each element. Returns the result in the given matrix. */
+matrix* matrix_ln_inplace(matrix* m1);
 
 /* Squares each element in the matrix. Returns the result in a new matrix. */
 matrix* matrix_square(const matrix* m1);
