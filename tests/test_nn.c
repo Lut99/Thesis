@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   20/04/2020, 23:25:13
+ *   20/04/2020, 23:42:45
  * Auto updated?
  *   Yes
  *
@@ -20,6 +20,19 @@
 
 #include "Functions.h"
 #include "NeuralNetwork.h"
+
+
+/***** TOOLS *****/
+
+/* Writes the data to a .dat file so GNUplot can plot it later. */
+void write_costs(size_t n_iterations, double* costs) {
+    FILE* dat = fopen("./nn_costs.dat", "w");
+    fprintf(dat, "# Iteration / Costs\n");
+    for (size_t i = 0; i < n_iterations; i++) {
+        fprintf(dat, "%ld %f\n", i, costs[i]);
+    }
+    fclose(dat);
+}
 
 
 /***** TEST FUNCTIONS *****/
@@ -158,7 +171,7 @@ bool test_training_simple() {
     double* costs = nn_train_costs(nn, m_in, m_exp, 0.9, 5000, sigmoid, other_cost_func, dydx_other_cost_func);
 
     // Write the graph showing the cost
-    // TBD
+    write_costs(5000, costs);
 
     // Now, test it
     matrix* m_out = nn_activate(nn, m_in, sigmoid);

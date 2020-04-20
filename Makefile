@@ -10,7 +10,7 @@ TST_BIN=$(BIN)/tests
 
 INCLUDES=-I $(LIB)/include
 
-.PHONY: default
+.PHONY: default plot
 default: all
 
 $(OBJ)/%.o: $(LIB)/%.c
@@ -32,7 +32,10 @@ tests: test_matrix test_nn
 	$(TST_BIN)/test_matrix.out
 	$(TST_BIN)/test_nn.out
 
-all: tests
+plot:
+	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""
+
+all: tests plot
 
 clean:
 	rm -f $(BIN)/*.out
