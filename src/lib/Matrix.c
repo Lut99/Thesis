@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   4/20/2020, 12:00:13 AM
+ *   20/04/2020, 14:14:07
  * Auto updated?
  *   Yes
  *
@@ -194,6 +194,43 @@ matrix* matrix_sub2_c_inplace(double c, matrix *m1) {
     return m1;
 }
 
+matrix* matrix_sub(const matrix* m1, const matrix* m2) {
+    // Sanity check that the matrices are correctly sized
+    if (m1->rows != m2->rows || m1->cols != m2->cols) {
+        fprintf(stderr, "ERROR: matrix_sub: matrix m1 (%ldx%ld) and m2 (%ldx%ld) do not have the same sizes\n",
+                m1->rows,
+                m1->cols,
+                m2->rows,
+                m2->cols);
+        return NULL;
+    }
+
+    // Create a new matrix, copy the the subtraction for each element and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = m1->data[i] - m2->data[i];
+    }
+    return to_ret;
+}
+matrix* matrix_sub_inplace(matrix* m1, const matrix* m2) {
+    // Sanity check that the matrices are correctly sized
+    if (m1->rows != m2->rows || m1->cols != m2->cols) {
+        fprintf(stderr, "ERROR: matrix_sub_inplace: matrix m1 (%ldx%ld) and m2 (%ldx%ld) do not have the same sizes\n",
+                m1->rows,
+                m1->cols,
+                m2->rows,
+                m2->cols);
+        return NULL;
+    }
+
+    // Subtract each element of m2 from m1, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] -= m2->data[i];
+    }
+    return m1;
+}
+
+
 matrix* matrix_mul_c(const matrix* m1, double c) {
     // Create a new matrix, copy the the multiplication of each element of m1 and c and return
     matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
@@ -325,6 +362,31 @@ matrix* matrix_exp_inplace(matrix *m1) {
         m1->data[i] = exp(m1->data[i]);
     }
     return m1;
+}
+
+matrix* matrix_square(const matrix* m1) {
+    // Create a new matrix, copy the the square of each element of m1 and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = m1->data[i] * m1->data[i];
+    }
+    return to_ret;
+}
+matrix* matrix_square_inplace(matrix* m1) {
+    // Multiply each element with itself, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] *= m1->data[i];
+    }
+    return m1;
+}
+
+double matrix_sum(const matrix* m1) {
+    // Loop through all elements to sum them
+    double total;
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        total += m1->data[i];
+    }
+    return total;
 }
 
 matrix* matrix_concat_h(const matrix* m1, const matrix* m2) {

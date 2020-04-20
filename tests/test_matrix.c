@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   4/19/2020, 11:25:14 PM
+ *   20/04/2020, 14:17:38
  * Auto updated?
  *   Yes
  *
@@ -239,6 +239,46 @@ bool test_constant_sub() {
     return succes;
 }
 
+/* Tests matrix subtraction. */
+bool test_subtraction() {
+    // Set the begin array and expected array
+    double start1[5][3] = {{ 1,  2,  3},
+                           { 4,  5,  6},
+                           { 7,  8,  9},
+                           {10, 11, 12},
+                           {13, 14, 15}};
+    double expect[5][3] = {{0, 0, 0},
+                           {0, 0, 0},
+                           {0, 0, 0},
+                           {0, 0, 0},
+                           {0, 0, 0}};
+
+    // Create the two matrices
+    matrix* m_1 = create_matrix(5, 3, start1);
+    matrix* m_2 = copy_matrix_new(m_1);
+
+    // Do the subtraction (also in-place)
+    matrix* m_res = matrix_sub(m_1, m_2);
+    matrix_sub_inplace(m_1, m_2);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(5, 3, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting subtraction failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_2);
+    destroy_matrix(m_res);
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
 /* Tests matrix constant multiplication. */
 bool test_constant_mul() {
     // Set the begin array and expected array
@@ -468,6 +508,70 @@ bool test_exponent() {
     return succes;
 }
 
+/* Tests matrix square. */
+bool test_square() {
+    // Set the begin array and expected array          
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3][4] = {{ 1,   4,   9,  16},
+                           {25,  36,  49,  64},
+                           {81, 100, 121, 144}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Do the inverse, also in-place
+    matrix *m_res = matrix_square(m_1);
+    matrix_square_inplace(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(3, 4, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        fprintf(stderr, "\nTesting square failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
+/* Tests matrix sum. */
+bool test_sum() {
+    // Set the begin array and expected return value       
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect = 78;
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Take the sum
+    double m_res = matrix_sum(m_1);
+
+    // Compare if they are equal
+    bool succes = true;
+    if (m_res != expect) {
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Summed value is incorrect: expected %f, got %f\n\n",
+                expect, m_res);
+        fprintf(stderr, "Testing square failed.\n\n");
+
+        succes = false;
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    return succes;
+}
+
 /* Tests matrix horizontal concatenation. */
 bool test_concat() {
     // Set the begin array and expected array          
@@ -535,6 +639,12 @@ int main() {
     }
     printf(" [ OK ]\n");
 
+    printf("  Testing subtraction...                   ");
+    if (!test_subtraction()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
     printf("  Testing matrix-constant multiplication...");
     if (!test_constant_mul()) {
         return -1;
@@ -567,6 +677,18 @@ int main() {
 
     printf("  Testing exponent...                      ");
     if (!test_exponent()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing square...                        ");
+    if (!test_square()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing sum...                        ");
+    if (!test_sum()) {
         return -1;
     }
     printf(" [ OK ]\n");

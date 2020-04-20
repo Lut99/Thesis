@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   4/19/2020, 11:52:57 PM
+ *   20/04/2020, 14:13:21
  * Auto updated?
  *   Yes
  *
@@ -95,6 +95,14 @@ matrix* matrix_inv_inplace(matrix* m1);
 matrix* matrix_exp(const matrix* m1);
 /* Takes the exponent of each element, e.g., x = e^x. Returns the result in the given matrix. */
 matrix* matrix_exp_inplace(matrix* m1);
+
+/* Squares each element in the matrix. Returns the result in a new matrix. */
+matrix* matrix_square(const matrix* m1);
+/* Squares each element in the matrix. Returns the result in the given matrix. */
+matrix* matrix_square_inplace(matrix* m1);
+
+/* Sums all elements in the matrix and returns the result. */
+double matrix_sum(const matrix* m1);
 
 /* Concatenates two matrices horizontally. The result is returned in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_concat_h(const matrix *m1, const matrix *m2);
