@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   20/04/2020, 17:24:55
+ *   20/04/2020, 21:22:55
  * Auto updated?
  *   Yes
  *
@@ -35,11 +35,11 @@ matrix* dydx_sigmoid(matrix* z);
 
 /***** COST FUNCTIONS *****/
 
-/* Implements the Mean Squared Error as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. Note that for efficiency, the first matrix is used as buffer for the in-between values and will be overwritten. */
-double mean_squared_error(matrix* output, const matrix* expected);
+/* Implements the Mean Squared Error as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. */
+double mean_squared_error(const matrix* output, const matrix* expected);
 
-/* Implements some other cost function as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. Note that for efficiency, the first matrix is used as buffer for the in-between values and will be overwritten. */
-double other_cost_func(matrix* output, const matrix* expected);
+/* Implements some other cost function as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. */
+double other_cost_func(const matrix* output, const matrix* expected);
 
 
 

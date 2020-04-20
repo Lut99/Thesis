@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   20/04/2020, 17:38:20
+ *   20/04/2020, 22:54:51
  * Auto updated?
  *   Yes
  *
@@ -51,9 +51,9 @@ matrix* dydx_sigmoid(matrix* z) {
 
 /***** COST FUNCTIONS *****/
 
-double mean_squared_error(matrix* output, const matrix* expected) {
+double mean_squared_error(const matrix* output, const matrix* expected) {
     // Sanity check to make sure the matrices have the correct size
-    if (output->rows != expected->rows || output->cols != 1 || expected->cols != 1) {
+    if (output->rows != expected->rows || output->cols != expected->cols) {
         fprintf(stderr, "ERROR: mean_squared_error: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
                 output->rows,
                 output->cols,
@@ -63,18 +63,20 @@ double mean_squared_error(matrix* output, const matrix* expected) {
     }
 
     // Subtract one matrix from the other
-    matrix_sub_inplace(output, expected);
+    matrix* error = matrix_sub(output, expected);
     // Square the values
-    matrix_square_inplace(output);
+    matrix_square_inplace(error);
     // Sum all values
-    double sum = matrix_sum(output);
+    double sum = matrix_sum(error);
+    // Clean the new matrix
+    destroy_matrix(error);
     // Return the result normalised
     return sum / expected->rows;
 }
 
-double other_cost_func (matrix* output, const matrix* expected) {
+double other_cost_func (const matrix* output, const matrix* expected) {
     // Sanity check to make sure the matrices have the correct size
-    if (output->rows != expected->rows || output->cols != 1 || expected->cols != 1) {
+    if (output->rows != expected->rows || output->cols != expected->cols) {
         fprintf(stderr, "ERROR: other_cost_func: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
                 output->rows,
                 output->cols,
@@ -86,7 +88,7 @@ double other_cost_func (matrix* output, const matrix* expected) {
     // Compute ln(output)
     matrix* output_ln = matrix_ln(output);
     // Compute ln(1 - output)
-    matrix* output_ln_m1 = matrix_ln_inplace(matrix_sub2_c_inplace(1, output));
+    matrix* output_ln_m1 = matrix_ln_inplace(matrix_sub2_c(1, output));
     // Compute 1 - expected
     matrix* expected_m1 = matrix_sub2_c(1, expected);
 
@@ -100,6 +102,7 @@ double other_cost_func (matrix* output, const matrix* expected) {
     double cost = matrix_sum(term);
     
     // Cleanup
+    destroy_matrix(output_ln_m1);
     destroy_matrix(output_ln);
     destroy_matrix(term);
     destroy_matrix(term2);
@@ -115,7 +118,7 @@ double other_cost_func (matrix* output, const matrix* expected) {
 matrix* dydx_other_cost_func(const matrix* deltas, const matrix* output) {
     // Take note that: deltas has shape 'n_nodes_next_layer x samples'
     //                 output has shape 'n_nodes_this_layer x samples'
-    // Returning matrix should be: 'n_nodes_this_layer x n_nodes_next_layer'
+    // Returning matrix should be: 'n_nodes_next_layer x n_nodes_this_layer'
     matrix* output_T = matrix_transpose(output);
     matrix* d_weights = matrix_matmul(deltas, output_T);
 

@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   20/04/2020, 16:11:38
+ *   20/04/2020, 23:25:13
  * Auto updated?
  *   Yes
  *
@@ -116,7 +116,7 @@ bool test_activation_mat() {
                 m_exp->cols);
     } else {
         // Loop through the elements
-        for (size_t i = 0; i < m_out->rows * m_out->cols; i++) {
+        for (size_t i = 0; succes && i < m_out->rows * m_out->cols; i++) {
             if (round(m_out->data[i]) != m_exp->data[i]) {
                 succes = false;
                 printf(" [FAIL]\n");
@@ -138,6 +138,67 @@ bool test_activation_mat() {
     return succes;
 }
 
+/* Tests the entire network on a simple toy problem (AND-function) */
+bool test_training_simple() {
+    // Define the input. Each test case is a row to not upset the underlying math
+    double start[2][4] = {{0, 0, 1, 1},
+                          {0, 1, 0, 1}};
+    // Define the output
+    double expec[1][4] = {{0, 1, 1, 1}};
+
+    // Create a new neural network
+    size_t nodes_per_layer[] = {2};
+    neural_net* nn = create_nn(2, 1, nodes_per_layer, 1);
+
+    // Prepare the inputs & expected matrices
+    matrix* m_in = create_matrix(2, 4, start);
+    matrix* m_exp = create_matrix(1, 4, expec);
+
+    // Train it with 500 iterations, noting the costs
+    double* costs = nn_train_costs(nn, m_in, m_exp, 0.9, 5000, sigmoid, other_cost_func, dydx_other_cost_func);
+
+    // Write the graph showing the cost
+    // TBD
+
+    // Now, test it
+    matrix* m_out = nn_activate(nn, m_in, sigmoid);
+
+    // Check if it is expected
+    bool succes = true;
+    if (m_out->rows != m_exp->rows || m_out->cols != m_exp->cols) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices do not have the same shape: got %ldx%ld, expected %ldx%ld\n",
+                m_out->rows,
+                m_out->cols,
+                m_exp->rows,
+                m_exp->cols);
+    } else {
+        // Loop through the elements
+        for (size_t i = 0; succes && i < m_out->rows * m_out->cols; i++) {
+            if (round(m_out->data[i]) != m_exp->data[i]) {
+                succes = false;
+                printf(" [FAIL]\n");
+                fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+                matrix_print(m_out);
+                fprintf(stderr, "\nExpected:\n");
+                matrix_print(m_exp);
+                fprintf(stderr, "\nTesting training (AND-function) failed.\n\n");
+            }
+        }
+    }
+
+    // Cleanup
+    destroy_nn(nn);
+    destroy_matrix(m_in);
+    destroy_matrix(m_exp);
+    destroy_matrix(m_out);
+    free(costs);
+
+    // Return the succes status
+    return succes;
+}
+
 
 
 /***** MAIN *****/
@@ -151,6 +212,12 @@ int main() {
 
     printf("  Testing activation (matrices)...         ");
     if (!test_activation_mat()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing training (AND-function)...       ");
+    if (!test_training_simple()) {
         return -1;
     }
     printf(" [ OK ]\n");
