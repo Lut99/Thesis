@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   4/20/2020, 12:04:41 AM
+ *   20/04/2020, 13:10:58
  * Auto updated?
  *   Yes
  *
@@ -127,4 +127,13 @@ void nn_activate(neural_net* nn, matrix* output, const matrix* input, matrix* (*
     
     // Cleanup
     destroy_matrix(input2);
+}
+
+void nn_train_pass(neural_net* nn, const matrix* input, const matrix* expected, matrix* (*activation_func)(matrix* z), double (*loss_func)(matrix* output, matrix* expected)) {
+    // First, perform a forward pass with the given inputs
+    matrix* output = create_empty_matrix(nn->nodes_per_layer[nn->n_layers - 1], 1);
+    nn_activate(nn, output, input, activation_func);
+
+    // Second, compute the cost of the inputs
+    double cost = (*loss_func)(output, expected);
 }

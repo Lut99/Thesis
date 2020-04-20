@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   4/20/2020, 12:11:07 AM
+ *   20/04/2020, 13:03:55
  * Auto updated?
  *   Yes
  *
@@ -31,7 +31,7 @@ bool test_activation() {
     double expected[4] = {0, 0, 0, 1};
 
     // Define the custom weights
-    double weights[1][3] = {{-30, -10, -10}};
+    double weights[1][3] = {{-30, 20, 20}};
 
     // Create a neural network with no hidden layers but remove the random weights that are initialised
     neural_net* nn = create_nn(2, 0, NULL, 1);
@@ -80,7 +80,7 @@ bool test_activation() {
 /***** MAIN *****/
 
 int main() {
-    printf("  Testing activation...");
+    printf("  Testing activation...                    ");
     if (!test_activation()) {
         return -1;
     }
