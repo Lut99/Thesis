@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   4/19/2020, 11:33:53 PM
+ *   20/04/2020, 14:19:33
  * Auto updated?
  *   Yes
  *
@@ -13,10 +13,13 @@
  *   used in the NeuralNetwork library.
 **/
 
-#include "math.h"
+#include <stdio.h>
+#include <math.h>
 
 #include "Functions.h"
 
+
+/***** ACTIVATION FUNCTIONS *****/
 
 matrix* sigmoid(matrix* z) {
     // Compute exp(-z)
@@ -26,6 +29,12 @@ matrix* sigmoid(matrix* z) {
 
     return result;
 }
+
+
+
+
+
+/***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
 matrix* dydx_sigmoid(matrix* z) {
     // Compute sigmoid z
@@ -38,4 +47,31 @@ matrix* dydx_sigmoid(matrix* z) {
     destroy_matrix(sz2);
     
     return result;
+}
+
+
+
+
+
+/***** COST FUNCTIONS *****/
+
+double mean_squared_error(matrix* output, const matrix* expected) {
+    // Sanity check to make sure the matrices have the correct size
+    if (output->rows != expected->rows || output->cols != 1 || expected->cols != 1) {
+        fprintf(stderr, "ERROR: mean_squared_error: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
+                output->rows,
+                output->cols,
+                expected->rows,
+                expected->cols);
+        return -1;
+    }
+
+    // Subtract one matrix from the other
+    matrix_sub_inplace(output, expected);
+    // Square the values
+    matrix_square_inplace(output);
+    // Sum all values
+    double sum = matrix_sum(output);
+    // Return the result normalised
+    return sum / expected->rows;
 }
