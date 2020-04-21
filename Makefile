@@ -19,6 +19,11 @@ $(OBJ)/%.o: $(LIB)/%.c
 $(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
 	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
 
+$(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a -lm
+
+digits: $(BIN)/digits.out
+
 test_matrix: $(TST)/test_matrix.c $(OBJ)/Matrix.o
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o -lm
 
@@ -35,7 +40,7 @@ tests: test_matrix test_nn
 plot:
 	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""
 
-all: tests plot
+all: digits tests plot
 
 clean:
 	rm -f $(BIN)/*.out
