@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   20/04/2020, 16:46:28
+ *   4/25/2020, 11:25:43 PM
  * Auto updated?
  *   Yes
  *
@@ -41,6 +41,9 @@ matrix* create_vector(size_t rows, const double data[rows]);
 matrix* copy_matrix(matrix* target, const matrix* source);
 /* Copies given matrix into a new matrix. */
 matrix* copy_matrix_new(const matrix* m);
+
+/* Creates a subset of given matrix by copying the data to a new one. The min values are inclusive, while the max values are exclusive. Note that ranges that are too large or too small are automatically bounded to be in range, and also note that this may cause an empty matrix (0x0) to be returned. */
+matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t col_min, size_t col_max);
 
 /* Destroys a given matrix object. */
 void destroy_matrix(matrix* m);
@@ -102,6 +105,11 @@ matrix* matrix_exp(const matrix* m1);
 /* Takes the exponent of each element, e.g., x = e^x. Returns the result in the given matrix. */
 matrix* matrix_exp_inplace(matrix* m1);
 
+/* Takes the hyperbolic tangent of each element. Returns the result in a new matrix. */
+matrix* matrix_tanh(const matrix* m1);
+/* Tales the hyperbolic tangent of each element. Returns the result in the given matrix. */
+matrix* matrix_tanh_inplace(matrix* m1);
+
 /* Takes the natural logarithm of each element. Returns the result in a new matrix. */
 matrix* matrix_ln(const matrix* m1);
 /* Takes the natural logarithm of each element. Returns the result in the given matrix. */
@@ -114,6 +122,8 @@ matrix* matrix_square_inplace(matrix* m1);
 
 /* Sums all elements in the matrix and returns the result. */
 double matrix_sum(const matrix* m1);
+/* Returns the maximum of the elements in the matrix. */
+double matrix_max(const matrix* m1);
 
 /* Concatenates two matrices horizontally. The result is returned in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_concat_h(const matrix *m1, const matrix *m2);
@@ -121,7 +131,7 @@ matrix* matrix_concat_h(const matrix *m1, const matrix *m2);
 
 /***** DEBUG TOOLS *****/
 
-/* Prints a matrix to stderr. */
+/* Prints a matrix to stdout. */
 void matrix_print(matrix* m);
 
 /* Checks if two matrices are the same and, if not, prints them both out with an error. */

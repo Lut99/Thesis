@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   20/04/2020, 21:22:55
+ *   4/25/2020, 11:52:05 PM
  * Auto updated?
  *   Yes
  *
@@ -24,12 +24,27 @@
 /* Implements the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
 matrix* sigmoid(matrix* z);
 
+/* Implements a hyperbolic tangent activation function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* hyperbolic_tangent(matrix* z);
+
+/* Implements the simplest of activation functions: f(x) = x. */
+matrix* simple(matrix* z);
+
+/* Implements the softmax function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* softmax(matrix* z);
+
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
 /* Implements the derivative of the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
 matrix* dydx_sigmoid(matrix* z);
+
+/* Implements the derivative of a hyperbolic tangent activation function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* dydx_hyperbolic_tangent(matrix* z);
+
+/* Implements the derivative of the softmax function working on an entire matrix. Note that this operation is performed in-place. */
+matrix* dydx_softmax(matrix* z);
 
 
 

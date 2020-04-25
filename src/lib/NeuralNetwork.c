@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   20/04/2020, 23:23:27
+ *   4/25/2020, 11:43:21 PM
  * Auto updated?
  *   Yes
  *
@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "NeuralNetwork.h"
 
@@ -113,8 +114,6 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
 
     // Iterate over each layer to feedforward through the network
     for (size_t i = 0; i < nn->n_weights; i++) {
-        // // Store the output without bias in the list
-        // outputs[i] = copy_matrix_new(inputs2);
         // First, add a bias node to the input of this layer
         inputs2 = add_bias(inputs2);
         // Store the output with bias in the list
@@ -123,8 +122,6 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
         matrix* z = matrix_matmul(nn->weights[i], inputs2);
         // Apply the activation function
         activation_func(z);
-        // // Cleanup the old inputs2
-        // destroy_matrix(inputs2);
         // Set z as the new one
         inputs2 = z;
     }
@@ -146,37 +143,6 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*activation_f
 
     // Return the last output
     return outputs[nn->n_layers - 1];
-}
-
-matrix* nn_classify(neural_net* nn, const matrix* inputs, matrix* (*activation_func)(matrix* z)) {
-    // Call the activation function
-    matrix* outputs = nn_activate(nn, inputs, activation_func);
-
-    // Create the return vector
-    matrix* to_ret = create_empty_matrix(outputs->cols, 1);
-    // Create the buffer that stores the highest value of each column so far
-    double highest[outputs->cols];
-    for (size_t i = 0; i < outputs->cols; i++) {
-        highest[i] = 0;
-    }
-
-    // Loop through each row and note if that node is the best for each column
-    for (size_t y = 0; y < outputs->rows; y++) {
-        for (size_t x = 0; x < outputs->cols; x++) {
-            // Check if this one is the best of the columns
-            double val = outputs->data[y * outputs->cols + x];
-            if (val > highest[x]) {
-                highest[x] = val;
-                to_ret->data[x] = y;
-            }
-        }
-    }
-
-    // Cleanup the outputs matrix
-    destroy_matrix(outputs);
-
-    // Return the classifications
-    return to_ret;
 }
 
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dxdy_cost_func)(const matrix* deltas, const matrix* output)) {
@@ -210,6 +176,9 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
         destroy_matrix(term2);
     }
 
+    // Cleanup the delta
+    destroy_matrix(deltas);
+
     // Done
 }
 
@@ -218,16 +187,26 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
     double* costs = malloc(sizeof(double) * n_iterations);
 
     // Perform the training
+    matrix* outputs[nn->n_layers];
     for (size_t i = 0; i < n_iterations; i++) {
         // First, perform a forward pass through the network
-        matrix* outputs[nn->n_layers];
         nn_activate_all(nn, outputs, inputs, act_func);
 
         // Compute the cost
         costs[i] = (*cost_func)(outputs[nn->n_layers - 1], expected);
+
+        // Print the cost once every 100 iterations
+        if (i % 100 == 0) {
+            printf("    (Iter %lu) Cost: %.2f\n", i, costs[i]);
+        }
         
         // Perform a backpropagation
         nn_backpropagate(nn, outputs, expected, learning_rate, dxdy_cost_func);
+
+        // Destroy all matrices
+        for (size_t i = 0; i < nn->n_layers; i++) {
+            destroy_matrix(outputs[i]);
+        }
     }
 
     // Return the costs list
@@ -236,12 +215,56 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
 void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act_func)(matrix*), matrix* (*dxdy_cost_func)(const matrix*, const matrix*)) {
     // Perform the training
+    matrix* outputs[nn->n_layers];
     for (size_t i = 0; i < n_iterations; i++) {
         // First, perform a forward pass through the network
-        matrix* outputs[nn->n_layers];
         nn_activate_all(nn, outputs, inputs, act_func);
         
         // Perform a backpropagation
         nn_backpropagate(nn, outputs, expected, learning_rate, dxdy_cost_func);
+
+        // Destroy all matrices
+        for (size_t i = 0; i < nn->n_layers; i++) {
+            destroy_matrix(outputs[i]);
+        }
     }
+}
+
+
+
+/***** USEFUL TOOLS *****/
+
+matrix* nn_flatten_results(matrix* outputs) {
+    double highest_indices[outputs->cols];
+    double highest_values[outputs->cols];
+    // Set highest values to -inf
+    for (size_t i = 0; i < outputs->cols; i++) {
+        highest_indices[i] = 0;
+        highest_values[i] = -INFINITY;
+    }
+
+    // First pass: find the highest values with matching index
+    for (size_t y = 0; y < outputs->rows; y++) {
+        for (size_t x = 0; x < outputs->cols; x++) {
+            double data = outputs->data[y * outputs->cols + x];
+            if (data > highest_values[x]) {
+                highest_indices[x] = y;
+                highest_values[x] = data;
+            }
+        }
+    }
+
+    // Now do another pass where all values are set to zero (except the highest ones)
+    for (size_t y = 0; y < outputs->rows; y++) {
+        for (size_t x = 0; x < outputs->cols; x++) {
+            if (y == highest_indices[x]) {
+                outputs->data[y * outputs->cols + x] = 1;
+            } else {
+                outputs->data[y * outputs->cols + x] = 0;
+            }
+        }
+    }
+
+    // Return the matrix for chaining
+    return outputs;
 }

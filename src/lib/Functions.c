@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   20/04/2020, 22:54:51
+ *   4/25/2020, 11:52:03 PM
  * Auto updated?
  *   Yes
  *
@@ -23,11 +23,38 @@
 
 matrix* sigmoid(matrix* z) {
     // Compute exp(-z)
-    matrix* exp_mz = matrix_exp_inplace(matrix_mul_c_inplace(z, -1));
+    matrix_exp_inplace(matrix_mul_c_inplace(z, -1));
     // Compute 1 / (1 + exp(-z))
-    matrix* result = matrix_inv_inplace(matrix_add_c_inplace(exp_mz, 1));
+    matrix_inv_inplace(matrix_add_c_inplace(z, 1));
 
-    return result;
+    return z;
+}
+
+matrix* hyperbolic_tangent(matrix* z) {
+    // Compute tanh(z) + 1
+    matrix_add_c_inplace(matrix_tanh_inplace(z), 1);
+    // Compute (tanh(z) + 1) / 2
+    matrix_mul_c_inplace(z, 0.5);
+
+    return z;
+}
+
+matrix* simple(matrix* z) {
+    return z;
+}
+
+/* Code from https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/ */
+matrix* softmax(matrix* z) {
+    // Compute z - np.max(z)
+    matrix_sub1_c_inplace(z, matrix_max(z));
+    // Compute exp(z - np.max(z))
+    matrix_exp_inplace(z);
+    // Compute sum(exp(z - np.max(z)))
+    double s = matrix_sum(z);
+    // Compute exp(z - np.max(z)) / sum(exp(z - np.max(z)))
+    matrix_mul_c_inplace(z, 1 / s);
+
+    return z;
 }
 
 
@@ -45,6 +72,15 @@ matrix* dydx_sigmoid(matrix* z) {
     destroy_matrix(sz2);
     
     return result;
+}
+
+matrix* dydx_hyperbolic_tangent(matrix* z) {
+    // Compute tanh(z)^2
+    matrix_square_inplace(matrix_tanh_inplace(z));
+    // Compute (1 - tanh(z)^2) / 2
+    matrix_mul_c_inplace(matrix_sub2_c_inplace(1, z), 0.5);
+
+    return z;
 }
 
 

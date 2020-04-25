@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   20/04/2020, 16:47:01
+ *   4/25/2020, 11:26:37 PM
  * Auto updated?
  *   Yes
  *
@@ -86,6 +86,39 @@ matrix* copy_matrix_new(const matrix* m) {
     return copy_matrix(to_ret, m);
 }
 
+matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t col_min, size_t col_max) {
+    // Make sure that everything is within bounds
+    if (row_min > m->rows) { row_min = m->rows; }
+    if (row_max > m->rows) { row_max = m->rows; }
+    if (col_min > m->cols) { col_min = m->cols; }
+    if (col_max > m->cols) { col_max = m->cols; }
+
+    // Make sure that they aren't incorrectly ordered
+    if (row_min > row_max) {
+        fprintf(stderr, "ERROR: subset_matrix: row_min (%lu) cannot be larger than row_max (%lu)\n",
+                row_min, row_max);
+        return NULL;
+    }
+    if (col_min > col_max) {
+        fprintf(stderr, "ERROR: subset_matrix: col_min (%lu) cannot be larger than col_max (%lu)\n",
+                col_min, col_max);
+        return NULL;
+    }
+
+    // Create a new matrix with the correct sizes
+    matrix* to_ret = create_empty_matrix(row_max - row_min, col_max - col_min);
+
+    // Copy the relevant data
+    for (size_t y = row_min; y < row_max; y++) {
+        for (size_t x = col_min; x < col_max; x++) {
+            to_ret->data[(y - row_min) * to_ret->cols + (x - col_min)] = m->data[y * m->cols + x];
+        }
+    }
+
+    // Return
+    return to_ret;
+}
+
 void destroy_matrix(matrix* m) {
     // Free the internal data, then the struct
     free(m->data);
@@ -103,7 +136,7 @@ matrix* matrix_transpose(const matrix* m) {
     // Loop and put 'em there
     for (size_t y = 0; y < m->rows; y++) {
         for (size_t x = 0; x < m->cols; x++) {
-            to_ret->data[x * m->rows + y] = m->data[y * m->cols + x];
+            to_ret->data[x * to_ret->cols + y] = m->data[y * m->cols + x];
         }
     }
 
@@ -302,7 +335,7 @@ matrix* matrix_matmul(const matrix* m1, const matrix* m2) {
             for (size_t i = 0; i < m1->cols; i++) {
                 sum += m1->data[y * m1->cols + i] * m2->data[i * m2->cols + x];
             }
-            to_ret->data[y * m1->cols + x] = sum;
+            to_ret->data[y * to_ret->cols + x] = sum;
         }
     }
     return to_ret;
@@ -364,6 +397,22 @@ matrix* matrix_exp_inplace(matrix *m1) {
     return m1;
 }
 
+matrix* matrix_tanh(const matrix* m1) {
+    // Create a new matrix, copy the the tanh of each element of m1 and return
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        to_ret->data[i] = tanh(m1->data[i]);
+    }
+    return to_ret;
+}
+matrix* matrix_tanh_inplace(matrix* m1) {
+    // Take tanh of each element, then return m1 to allow chaining
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        m1->data[i] = tanh(m1->data[i]);
+    }
+    return m1;
+}
+
 matrix* matrix_ln(const matrix *m1) {
     // Create a new matrix, copy the the ln of each element of m1 and return
     matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
@@ -404,6 +453,15 @@ double matrix_sum(const matrix* m1) {
     }
     return total;
 }
+double matrix_max(const matrix* m1) {
+    double max = -INFINITY;
+    for (size_t i = 0; i < m1->rows * m1->cols; i++) {
+        if (m1->data[i] > max) {
+            max = m1->data[i];
+        }
+    }
+    return max;
+}
 
 matrix* matrix_concat_h(const matrix* m1, const matrix* m2) {
     // Sanity check that the matrices are correctly sized
@@ -438,15 +496,15 @@ matrix* matrix_concat_h(const matrix* m1, const matrix* m2) {
 void matrix_print(matrix* m) {
     // Early quit if there is nothing to print
     if (m->rows == 0 || m->cols == 0) {
-        fprintf(stderr, "(empty)\n");
+        fprintf(stdout, "(empty)\n");
         return;
     }
     for (size_t y = 0; y < m->rows; y++) {
-        fprintf(stderr, "[%7.2f", m->data[y * m->cols]);
+        fprintf(stdout, "[%7.2f", m->data[y * m->cols]);
         for (size_t x = 1; x < m->cols; x++) {
-            fprintf(stderr, " %7.2f", m->data[y * m->cols + x]);
+            fprintf(stdout, " %7.2f", m->data[y * m->cols + x]);
         }
-        fprintf(stderr, "]\n");
+        fprintf(stdout, "]\n");
     }
 }
 

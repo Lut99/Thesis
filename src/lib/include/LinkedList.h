@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 13:01:50
  * Last edited:
- *   21/04/2020, 13:07:21
+ *   4/25/2020, 1:12:40 PM
  * Auto updated?
  *   Yes
  *
@@ -33,6 +33,7 @@ typedef struct LINKEDLIST_NODE {
 /* The struct defining the LinkedList. */
 typedef struct LINKEDLIST {
     llist_node* head;
+    llist_node* tail;
     size_t size;
 } llist;
 
@@ -45,8 +46,8 @@ llist* create_llist();
 
 /* Destroys a given LinkedList object, but does not deallocate the values. */
 void destroy_llist(llist* ll);
-/* Destroys a given LinkedList object and also deallocates the values. */
-void purge_llist(llist* ll);
+/* Destroys a given LinkedList object and also deallocates the values. The given function is the function used to free each element. */
+void purge_llist(llist* ll, void (*free_func)(void* value));
 
 
 

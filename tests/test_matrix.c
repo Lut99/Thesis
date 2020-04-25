@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   20/04/2020, 17:38:31
+ *   4/25/2020, 11:27:22 PM
  * Auto updated?
  *   Yes
  *
@@ -21,6 +21,63 @@
 
 
 /***** TEST FUNCTIONS *****/
+
+/* Tests matrix subset. */
+bool test_subset() {
+    // Set the begin arrays and expected arrays
+    double start[5][3] = {{ 1,  2,  3},
+                          { 4,  5,  6},
+                          { 7,  8,  9},
+                          {10, 11, 12},
+                          {13, 14, 15}};
+    double expec1[4][2] = {{ 1,  2},
+                           { 4,  5},
+                           { 7,  8},
+                           {10, 11}};
+    double expec2[4][2] = {{ 5,  6},
+                           { 8,  9},
+                           {11, 12},
+                           {14, 15}};
+    
+    // Create the start matrix
+    matrix* m_1 = create_matrix(5, 3, start);
+
+    // Fetch the subsets
+    matrix* m_res1 = subset_matrix(m_1, 0, 4, 0, 2);
+    matrix* m_res2 = subset_matrix(m_1, 1, 5, 1, 3);
+
+    // Compare if they are equal
+    matrix* m_exp1 = create_matrix(4, 2, expec1);
+    matrix* m_exp2 = create_matrix(4, 2, expec2);
+
+    bool succes = true;
+    if (!matrix_equals(m_res1, m_exp1)) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res1);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp1);
+        fprintf(stderr, "\nTesting subset failed.\n\n");
+    } else if (!matrix_equals(m_res2, m_exp2)) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\nGot:\n");
+        matrix_print(m_res2);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp2);
+        fprintf(stderr, "\nTesting subset failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res1);
+    destroy_matrix(m_res2);
+    destroy_matrix(m_exp1);
+    destroy_matrix(m_exp2);
+
+    return succes;
+}
 
 /* Tests matrix transposes. */
 bool test_transpose() {
@@ -571,6 +628,51 @@ bool test_exponent() {
     return succes;
 }
 
+/* Tests matrix tanh. */
+bool test_tanh() {
+    // Set the begin array and expected array          
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3][4] = {{tanh(1), tanh( 2), tanh( 3), tanh( 4)},
+                           {tanh(5), tanh( 6), tanh( 7), tanh( 8)},
+                           {tanh(9), tanh(10), tanh(11), tanh(12)}};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Do the inverse, also in-place
+    matrix *m_res = matrix_tanh(m_1);
+    matrix_tanh_inplace(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(3, 4, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
+        fprintf(stderr, "\nTesting tanh failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res),
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
 /* Tests matrix log. */
 bool test_nat_log() {
     // Set the begin array and expected array          
@@ -681,7 +783,37 @@ bool test_sum() {
         printf(" [FAIL]\n");
         fprintf(stderr, "Summed value is incorrect: expected %f, got %f\n\n",
                 expect, m_res);
-        fprintf(stderr, "Testing square failed.\n\n");
+        fprintf(stderr, "Testing sum failed.\n\n");
+
+        succes = false;
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    return succes;
+}
+
+/* Tests matrix max. */
+bool test_max() {
+    // Set the begin array and expected return value       
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect = 12;
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Take the sum
+    double m_res = matrix_max(m_1);
+
+    // Compare if they are equal
+    bool succes = true;
+    if (m_res != expect) {
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Max value is incorrect: expected %f, got %f\n\n",
+                expect, m_res);
+        fprintf(stderr, "Testing max failed.\n\n");
 
         succes = false;
     }
@@ -739,6 +871,12 @@ bool test_concat() {
 /***** MAIN *****/
 
 int main() {
+    printf("  Testing subset...                        ");
+    if (!test_subset()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+    
     printf("  Testing transposing...                   ");
     if (!test_transpose()) {
         return -1;
@@ -805,6 +943,12 @@ int main() {
     }
     printf(" [ OK ]\n");
 
+    printf("  Testing tanh...                          ");
+    if (!test_tanh()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
     printf("  Testing natural logarithm...             ");
     if (!test_nat_log()) {
         return -1;
@@ -819,6 +963,12 @@ int main() {
 
     printf("  Testing sum...                           ");
     if (!test_sum()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing max...                           ");
+    if (!test_max()) {
         return -1;
     }
     printf(" [ OK ]\n");

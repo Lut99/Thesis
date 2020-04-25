@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   20/04/2020, 22:16:37
+ *   4/25/2020, 4:01:45 PM
  * Auto updated?
  *   Yes
  *
@@ -54,9 +54,6 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
 /* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs, except that this only returns the outputs of the last layer. */
 matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*activation_func)(matrix* z));
 
-/* Classifies given input and returns the result of each input as a vector with the class chosen (as number). The classification is nothing more than returning the index of the node in the output layer with the highest value. */
-matrix* nn_classify(neural_net* nn, const matrix* inputs, matrix* (*activation_func)(matrix* z));
-
 /* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. The given partial derivative of the cost function is used to translate from deltas to the change in weights. */
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dxdy_cost_func)(const matrix* deltas, const matrix* output));
 
@@ -65,5 +62,11 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
 void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act_func)(matrix*), matrix* (*dxdy_cost_func)(const matrix*, const matrix*));
+
+
+/***** USEFUL TOOLS *****/
+
+/* For all columns in the matrix, sets each value to zero except the largest value. For two equal values, the first one is chosen so that there is only one. The result is returned in the given matrix (inplace). */
+matrix* nn_flatten_results(matrix* outputs);
 
 #endif
