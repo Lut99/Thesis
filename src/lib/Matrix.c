@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   4/25/2020, 11:26:37 PM
+ *   27/04/2020, 22:06:35
  * Auto updated?
  *   Yes
  *
@@ -192,6 +192,56 @@ matrix* matrix_add_inplace(matrix* m1, const matrix* m2) {
     // Add each element of m2 to m1, then return m1 to allow chaining
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
         m1->data[i] += m2->data[i];
+    }
+    return m1;
+}
+
+matrix* matrix_add_vec(const matrix* m1, const matrix* v1) {
+    // Sanity check that the matrix and the vector have correct sizes
+    if (v1->cols != 1) {
+        fprintf(stderr, "ERROR: matrix_add_vec: vector v1 (%ldx%ld) is not a vector\n",
+                v1->rows,
+                v1->cols);
+        return NULL;
+    } else if (m1->rows != v1->rows) {
+        fprintf(stderr, "ERROR: matrix_add_vec: matrix m1 (%ldx%ld) and vector v1 (%ld) do not have the same number of rows\n",
+                m1->rows,
+                m1->cols,
+                v1->rows);
+        return NULL;
+    }
+
+    // Add each element of the vector to each column of a new vector
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t y = 0; y < m1->rows; y++) {
+        double elem = v1->data[y];
+        for (size_t x = 0; x < m1->cols; x++) {
+            to_ret->data[y * m1->cols + x] = m1->data[y * m1->cols + x] + elem;
+        }
+    }
+    return to_ret;
+}
+matrix* matrix_add_vec_inplace(matrix* m1, const matrix* v1) {
+    // Sanity check that the matrix and the vector have correct sizes
+    if (v1->cols != 1) {
+        fprintf(stderr, "ERROR: matrix_add_vec_inplace: vector v1 (%ldx%ld) is not a vector\n",
+                v1->rows,
+                v1->cols);
+        return NULL;
+    } else if (m1->rows != v1->rows) {
+        fprintf(stderr, "ERROR: matrix_add_vec_inplace: matrix m1 (%ldx%ld) and vector v1 (%ld) do not have the same number of rows\n",
+                m1->rows,
+                m1->cols,
+                v1->rows);
+        return NULL;
+    }
+
+    // Add each element of the vector to each column of a new vector
+    for (size_t y = 0; y < m1->rows; y++) {
+        double elem = v1->data[y];
+        for (size_t x = 0; x < m1->cols; x++) {
+            m1->data[y * m1->cols + x] += elem;
+        }
     }
     return m1;
 }
@@ -452,6 +502,22 @@ double matrix_sum(const matrix* m1) {
         total += m1->data[i];
     }
     return total;
+}
+matrix* matrix_sum_h(const matrix* m1) {
+    // Create a vector of the correct size
+    matrix* to_ret = create_empty_matrix(m1->rows, 1);
+    
+    // Loop through all rows to sum them
+    for (size_t y = 0; y < m1->rows; y++) {
+        double sum = 0;
+        for (size_t x = 0; x < m1->cols; x++) {
+            sum += m1->data[y * m1->cols + x];
+        }
+        to_ret->data[y] = sum;
+    }
+
+    // Return
+    return to_ret;
 }
 double matrix_max(const matrix* m1) {
     double max = -INFINITY;

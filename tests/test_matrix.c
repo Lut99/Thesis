@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 23:18:21
  * Last edited:
- *   4/25/2020, 11:27:22 PM
+ *   27/04/2020, 22:28:58
  * Auto updated?
  *   Yes
  *
@@ -214,6 +214,62 @@ bool test_addition() {
     // Clean up and return the succes status
     destroy_matrix(m_1);
     destroy_matrix(m_2);
+    destroy_matrix(m_res);
+    destroy_matrix(m_exp);
+
+    return succes;
+}
+
+/* Tests matrix addition. */
+bool test_vec_add() {
+    // Set the begin array and expected array
+    double start1[5][3] = {{ 1,  2,  3},
+                           { 4,  5,  6},
+                           { 7,  8,  9},
+                           {10, 11, 12},
+                           {13, 14, 15}};
+    double start2[5] = {1,
+                        2,
+                        3,
+                        4,
+                        5};
+    double expect[5][3] = {{ 2,  3,  4},
+                           { 6,  7,  8},
+                           {10, 11, 12},
+                           {14, 15, 16},
+                           {18, 19, 20}};
+
+    // Create the two matrices
+    matrix* m_1 = create_matrix(5, 3, start1);
+    matrix* v_1 = create_vector(5, start2);
+
+    // Do the addition (also in-place)
+    matrix* m_res = matrix_add_vec(m_1, v_1);
+    matrix_add_vec_inplace(m_1, v_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_matrix(5, 3, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp) || !matrix_equals(m_1, m_exp)) {
+        succes = false;
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Matrices are not equal:\n\n");
+        if (!matrix_equals(m_res, m_exp)) {
+            fprintf(stderr, "Got:\n");
+            matrix_print(m_res);
+        } else {
+            fprintf(stderr, "Got (inplace):\n");
+            matrix_print(m_1);
+        }
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
+        fprintf(stderr, "\nTesting vector addition failed.\n\n");
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(v_1);
     destroy_matrix(m_res);
     destroy_matrix(m_exp);
 
@@ -793,6 +849,42 @@ bool test_sum() {
     return succes;
 }
 
+/* Tests horizontal matrix sum. */
+bool test_hsum() {
+    // Set the begin array and expected return value       
+    double start1[3][4] = {{1,  2,  3,  4},
+                           {5,  6,  7,  8},
+                           {9, 10, 11, 12}};
+    double expect[3] = {10, 26, 42};
+
+    // Create the matrix
+    matrix* m_1 = create_matrix(3, 4, start1);
+
+    // Take the sum
+    matrix* m_res = matrix_sum_h(m_1);
+
+    // Compare if they are equal
+    matrix* m_exp = create_vector(3, expect);
+
+    bool succes = true;
+    if (!matrix_equals(m_res, m_exp)) {
+        printf(" [FAIL]\n");
+        fprintf(stderr, "Summed vector is incorrect:\n\nGot:\n");
+        matrix_print(m_res);
+        fprintf(stderr, "\nExpected:\n");
+        matrix_print(m_exp);
+        fprintf(stderr, "\nTesting horizontal sum failed.\n\n");
+
+        succes = false;
+    }
+
+    // Clean up and return the succes status
+    destroy_matrix(m_1);
+    destroy_matrix(m_res);
+    destroy_matrix(m_exp);
+    return succes;
+}
+
 /* Tests matrix max. */
 bool test_max() {
     // Set the begin array and expected return value       
@@ -895,6 +987,12 @@ int main() {
     }
     printf(" [ OK ]\n");
 
+    printf("  Testing vector addition...               ");
+    if (!test_vec_add()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
     printf("  Testing matrix-constant subtraction...   ");
     if (!test_constant_sub()) {
         return -1;
@@ -963,6 +1061,12 @@ int main() {
 
     printf("  Testing sum...                           ");
     if (!test_sum()) {
+        return -1;
+    }
+    printf(" [ OK ]\n");
+
+    printf("  Testing horizontal sum...                ");
+    if (!test_hsum()) {
         return -1;
     }
     printf(" [ OK ]\n");

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   4/25/2020, 11:52:05 PM
+ *   27/04/2020, 15:47:53
  * Auto updated?
  *   Yes
  *
@@ -30,21 +30,15 @@ matrix* hyperbolic_tangent(matrix* z);
 /* Implements the simplest of activation functions: f(x) = x. */
 matrix* simple(matrix* z);
 
-/* Implements the softmax function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* softmax(matrix* z);
-
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
 /* Implements the derivative of the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* dydx_sigmoid(matrix* z);
+matrix* dydx_sigmoid(const matrix* z);
 
 /* Implements the derivative of a hyperbolic tangent activation function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* dydx_hyperbolic_tangent(matrix* z);
-
-/* Implements the derivative of the softmax function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* dydx_softmax(matrix* z);
+matrix* dydx_hyperbolic_tangent(const matrix* z);
 
 
 
@@ -61,6 +55,6 @@ double other_cost_func(const matrix* output, const matrix* expected);
 /***** COST FUNCTIONS (PARTIAL) DERIVATIVES *****/
 
 /* Implements the partial derivative of some other cost function that returns the change in weights for given deltas of the next layer and given outputs of this layer. */
-matrix* dydx_other_cost_func(const matrix* deltas, const matrix* output);
+double dydx_mean_squared_error(const matrix* output, const matrix* expected);
 
 #endif

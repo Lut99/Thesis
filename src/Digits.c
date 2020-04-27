@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   27/04/2020, 14:30:34
+ *   27/04/2020, 22:13:21
  * Auto updated?
  *   Yes
  *
@@ -30,7 +30,7 @@
 /* Number of iterations that the neural network will be trained on. */
 #define TRAIN_ITERATIONS 25000
 /* Learning rate of the Neural Network. */
-#define TRAIN_ETA 0.0005
+#define TRAIN_ETA 0.00000001
 
 
 static unsigned int row = 1;
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
 
     // Train the neural network for ITERATIONS iterations
     printf("  Training...\n");
-    double* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, hyperbolic_tangent, other_cost_func, dydx_other_cost_func);
+    double* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, hyperbolic_tangent, dydx_hyperbolic_tangent, mean_squared_error, dydx_mean_squared_error);
     printf("  Writing costs...\n\n");
     // Write the costs for plotting
     write_costs(TRAIN_ITERATIONS, costs);

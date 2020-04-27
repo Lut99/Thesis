@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   4/25/2020, 11:25:43 PM
+ *   27/04/2020, 22:04:46
  * Auto updated?
  *   Yes
  *
@@ -65,6 +65,11 @@ matrix* matrix_add(const matrix *m1, const matrix *m2);
 /* Adds two matrices and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
 matrix* matrix_add_inplace(matrix* m1, const matrix *m2);
 
+/* Adds a vector to each column of the matrix and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_add_vec(const matrix* m1, const matrix* v1);
+/* Adds a vector to each column of the matrix and returns the result in the first argument (the matrix). Returns NULL and prints to stderr if the sizes are not correct. */
+matrix* matrix_add_vec_inplace(matrix* m1, const matrix* v1);
+
 /* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
 matrix* matrix_sub1_c(const matrix *m1, double c);
 /* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
@@ -122,6 +127,8 @@ matrix* matrix_square_inplace(matrix* m1);
 
 /* Sums all elements in the matrix and returns the result. */
 double matrix_sum(const matrix* m1);
+/* Sums the elements in a matrix horizontally, resulting in a vector with the sum of each row as element. */
+matrix* matrix_sum_h(const matrix* m1);
 /* Returns the maximum of the elements in the matrix. */
 double matrix_max(const matrix* m1);
 

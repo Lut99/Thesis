@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   4/25/2020, 11:52:03 PM
+ *   27/04/2020, 23:29:01
  * Auto updated?
  *   Yes
  *
@@ -43,27 +43,13 @@ matrix* simple(matrix* z) {
     return z;
 }
 
-/* Code from https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/ */
-matrix* softmax(matrix* z) {
-    // Compute z - np.max(z)
-    matrix_sub1_c_inplace(z, matrix_max(z));
-    // Compute exp(z - np.max(z))
-    matrix_exp_inplace(z);
-    // Compute sum(exp(z - np.max(z)))
-    double s = matrix_sum(z);
-    // Compute exp(z - np.max(z)) / sum(exp(z - np.max(z)))
-    matrix_mul_c_inplace(z, 1 / s);
-
-    return z;
-}
-
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
-matrix* dydx_sigmoid(matrix* z) {
+matrix* dydx_sigmoid(const matrix* z) {
     // Compute sigmoid z
-    matrix* sz = sigmoid(z);
+    matrix* sz = sigmoid(copy_matrix_new(z));
     // Compute sigmoid(z) * (1 - sigmoid(z))
     matrix* sz2 = copy_matrix_new(sz);
     matrix* result = matrix_mul_inplace(sz, matrix_sub2_c_inplace(1, sz2));
@@ -74,13 +60,13 @@ matrix* dydx_sigmoid(matrix* z) {
     return result;
 }
 
-matrix* dydx_hyperbolic_tangent(matrix* z) {
+matrix* dydx_hyperbolic_tangent(const matrix* z) {
     // Compute tanh(z)^2
-    matrix_square_inplace(matrix_tanh_inplace(z));
+    matrix* tanh_z2 = matrix_square_inplace(matrix_tanh(z));
     // Compute (1 - tanh(z)^2) / 2
-    matrix_mul_c_inplace(matrix_sub2_c_inplace(1, z), 0.5);
+    matrix_mul_c_inplace(matrix_sub2_c_inplace(1, tanh_z2), 0.5);
 
-    return z;
+    return tanh_z2;
 }
 
 
@@ -98,16 +84,16 @@ double mean_squared_error(const matrix* output, const matrix* expected) {
         return -1;
     }
 
-    // Subtract one matrix from the other
+    // Subtract one matrix from the other (output - expected)
     matrix* error = matrix_sub(output, expected);
-    // Square the values
+    // Square the values ((output - expected) ^ 2)
     matrix_square_inplace(error);
-    // Sum all values
+    // Sum all values (sum((output - expected) ^ 2))
     double sum = matrix_sum(error);
     // Clean the new matrix
     destroy_matrix(error);
-    // Return the result normalised
-    return sum / expected->rows;
+    // Return the result normalised (1 / n * sum((output - expected) ^ 2))
+    return sum / 2;// / expected->rows;
 }
 
 double other_cost_func (const matrix* output, const matrix* expected) {
@@ -151,16 +137,13 @@ double other_cost_func (const matrix* output, const matrix* expected) {
 
 /***** COST FUNCTIONS (PARTIAL) DERIVATIVES *****/
 
-matrix* dydx_other_cost_func(const matrix* deltas, const matrix* output) {
-    // Take note that: deltas has shape 'n_nodes_next_layer x samples'
-    //                 output has shape 'n_nodes_this_layer x samples'
-    // Returning matrix should be: 'n_nodes_next_layer x n_nodes_this_layer'
-    matrix* output_T = matrix_transpose(output);
-    matrix* d_weights = matrix_matmul(deltas, output_T);
-
-    // Cleanup
-    destroy_matrix(output_T);
-    
-    // Return the new matrix
-    return d_weights;
+double dydx_mean_squared_error(const matrix* output, const matrix* expected) {
+    // Compute (exp - output)
+    matrix* error = matrix_sub(output, expected);
+    // Compute the sum
+    double sum = matrix_sum(error);
+    // Clean the matrix
+    destroy_matrix(error);
+    // Return the result normalised
+    return /*(-2 / expected->rows) **/ sum;
 }

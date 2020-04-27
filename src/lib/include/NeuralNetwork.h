@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   4/25/2020, 4:01:45 PM
+ *   27/04/2020, 22:56:50
  * Auto updated?
  *   Yes
  *
@@ -28,10 +28,15 @@ typedef struct NEURALNET {
     /* The number of nodes per layer in the network. Note that this includes input and output layers. */
     size_t* nodes_per_layer;
 
-    /* List of weights for each layer. */
-    matrix** weights;
+    /* The number of biases in the neural network. Is equal to the number of hidden layers. */
+    size_t n_biases;
+    /* The biases for each layer of the network. */
+    double* biases;
+
     /* The number of weights in the neural network. Equal to the number of layers minus 1. */
     size_t n_weights;
+    /* List of weights for each layer. */
+    matrix** weights;
 } neural_net;
 
 
@@ -55,13 +60,13 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
 matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*activation_func)(matrix* z));
 
 /* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. The given partial derivative of the cost function is used to translate from deltas to the change in weights. */
-void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dxdy_cost_func)(const matrix* deltas, const matrix* output));
+void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dxdy_act)(const matrix* z), double (*dxdy_cost_func)(const matrix*, const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act_func)(matrix*), double (*cost_func)(const matrix*, const matrix*), matrix* (*dxdy_cost_func)(const matrix*, const matrix*));
+double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*), double (*cost)(const matrix*, const matrix*), double (*dydx_cost)(const matrix*, const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act_func)(matrix*), matrix* (*dxdy_cost_func)(const matrix*, const matrix*));
+void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*), double (*dydx_cost)(const matrix*, const matrix*));
 
 
 /***** USEFUL TOOLS *****/
