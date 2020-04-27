@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   27/04/2020, 22:56:50
+ *   28/04/2020, 00:47:29
  * Auto updated?
  *   Yes
  *
@@ -28,13 +28,10 @@ typedef struct NEURALNET {
     /* The number of nodes per layer in the network. Note that this includes input and output layers. */
     size_t* nodes_per_layer;
 
-    /* The number of biases in the neural network. Is equal to the number of hidden layers. */
-    size_t n_biases;
-    /* The biases for each layer of the network. */
-    double* biases;
-
     /* The number of weights in the neural network. Equal to the number of layers minus 1. */
     size_t n_weights;
+    /* List of biases for each layer, save the output layer. */
+    matrix** biases;
     /* List of weights for each layer. */
     matrix** weights;
 } neural_net;
@@ -54,19 +51,19 @@ void destroy_nn(neural_net* nn);
 /***** NEURAL NETWORK OPERATIONS *****/
 
 /* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs. The results of each layer are returned in the given output list of newly allocated matrices. */
-void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*activation_func)(matrix* z));
+void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*act)(matrix*));
 
 /* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs, except that this only returns the outputs of the last layer. */
-matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*activation_func)(matrix* z));
+matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*));
 
 /* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. The given partial derivative of the cost function is used to translate from deltas to the change in weights. */
-void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dxdy_act)(const matrix* z), double (*dxdy_cost_func)(const matrix*, const matrix*));
+void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*), double (*cost)(const matrix*, const matrix*), double (*dydx_cost)(const matrix*, const matrix*));
+double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*), double (*dydx_cost)(const matrix*, const matrix*));
+void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
 
 
 /***** USEFUL TOOLS *****/

@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   27/04/2020, 23:25:04
+ *   28/04/2020, 01:17:59
  * Auto updated?
  *   Yes
  *
@@ -154,21 +154,26 @@ bool test_activation_mat() {
 /* Tests the entire network on a simple toy problem (AND-function) */
 bool test_training_simple() {
     // Define the input. Each test case is a row to not upset the underlying math
-    double start[2][4] = {{0, 0, 1, 1},
-                          {0, 1, 0, 1}};
+    double start[4][2] = {{0, 0},
+                          {0, 1},
+                          {1, 0},
+                          {1, 1}};
     // Define the output
-    double expec[1][4] = {{0, 1, 1, 1}};
+    double expec[4][1] = {{0},
+                          {1},
+                          {1},
+                          {1}};
 
     // Create a new neural network
     size_t nodes_per_layer[] = {2};
     neural_net* nn = create_nn(2, 1, nodes_per_layer, 1);
 
     // Prepare the inputs & expected matrices
-    matrix* m_in = create_matrix(2, 4, start);
-    matrix* m_exp = create_matrix(1, 4, expec);
+    matrix* m_in = create_matrix(4, 2, start);
+    matrix* m_exp = create_matrix(4, 1, expec);
 
     // Train it with 500 iterations, noting the costs
-    double* costs = nn_train_costs(nn, m_in, m_exp, 0.9, 5000, sigmoid, dydx_sigmoid, mean_squared_error, dydx_mean_squared_error);
+    double* costs = nn_train_costs(nn, m_in, m_exp, 0.9, 5000, sigmoid, dydx_sigmoid);
 
     // Write the graph showing the cost
     write_costs(5000, costs);
@@ -206,7 +211,7 @@ bool test_training_simple() {
     destroy_matrix(m_in);
     destroy_matrix(m_exp);
     destroy_matrix(m_out);
-    free(costs);
+    // free(costs);
 
     // Return the succes status
     return succes;
