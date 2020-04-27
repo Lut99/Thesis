@@ -17,18 +17,21 @@ INCLUDES=-I $(LIB)/include
 .PHONY: default dirs plot
 default: all
 
+$(BIN):
+	mkdir -p $@
+$(OBJ):
+	mkdir -p $@
+$(TST_BIN):
+	mkdir -p $@
 dirs: $(BIN) $(OBJ) $(TST_BIN)
-	mkdir -p $(BIN)
-	mkdir -p $(OBJ)
-	mkdir -p $(TST_BIN)
 
-$(OBJ)/%.o: $(LIB)/%.c dirs dirs
+$(OBJ)/%.o: $(LIB)/%.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< -lm
 
-$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o dirs
+$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o | dirs
 	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
 
-$(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a dirs
+$(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a -lm
 
 digits: $(BIN)/digits.out
