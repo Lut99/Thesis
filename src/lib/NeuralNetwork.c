@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 19:26:29
+ *   28/04/2020, 21:29:20
  * Auto updated?
  *   Yes
  *
@@ -31,8 +31,22 @@
 
 /***** HELPER FUNCTIONS *****/
 
+/* Creates and initialises a bias matrix for the number of given nodes. */
+array* initialize_biases(size_t n_nodes) {
+    // Create a new matrix of the proper dimensions
+    array* to_ret = create_empty_array(n_nodes);
+
+    // Set each value to a random one in the range BIAS_MIN (inclusive) and BIAS_MAX (exclusive)
+    for (size_t i = 0; i < to_ret->size; i++) {
+        to_ret->d[i] = (double)rand()/RAND_MAX * (BIAS_MAX - BIAS_MIN) + BIAS_MIN;
+    }
+
+    // Return
+    return to_ret;
+}
+
 /* Creates and initialises a weights matrix of given proportions. */
-matrix* initialise_weights(size_t input_size, size_t output_size) {
+matrix* initialize_weights(size_t input_size, size_t output_size) {
     // Create a new matrix of the proper dimensions
     matrix* to_ret = create_empty_matrix(input_size, output_size);
 
@@ -41,21 +55,7 @@ matrix* initialise_weights(size_t input_size, size_t output_size) {
         to_ret->data[i] = (double)rand()/RAND_MAX * (WEIGHTS_MAX - WEIGHTS_MIN) + WEIGHTS_MIN;
     }
 
-    // Return the weights
-    return to_ret;
-}
-
-/* Creates and initialises a bias matrix for the number of given nodes. */
-matrix* initialise_biases(size_t n_nodes) {
-    // Create a new matrix of the proper dimensions
-    matrix* to_ret = create_empty_matrix(1, n_nodes);
-
-    // Set each value to a random one in the range BIAS_MIN (inclusive) and BIAS_MAX (exclusive)
-    for (size_t i = 0; i < to_ret->rows * to_ret->cols; i++) {
-        to_ret->data[i] = (double)rand()/RAND_MAX * (BIAS_MAX - BIAS_MIN) + BIAS_MIN;
-    }
-
-    // Return the weights
+    // Return
     return to_ret;
 }
 
@@ -69,13 +69,35 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
 
     // Create a new neural net object
     neural_net* to_ret = malloc(sizeof(neural_net));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_nn: could not allocate struct (%lu bytes).\n",
+                sizeof(neural_net));
+        return NULL;
+    }
 
-    // Store the total number of layers
+    // Allocate the required lists for the neural network
+    to_ret->nodes_per_layer = malloc(sizeof(size_t) * to_ret->n_layers);
+    to_ret->biases = malloc(sizeof(array*) * to_ret->n_weights);
+    to_ret->weights = malloc(sizeof(matrix*) * to_ret->n_weights);
+    if (to_ret->nodes_per_layer == NULL) {
+        fprintf(stderr, "ERROR: create_nn: could not allocate nodes list (%lu bytes).\n",
+                sizeof(size_t) * to_ret->n_layers);
+        return NULL;
+    } else if (to_ret->biases == NULL) {
+        fprintf(stderr, "ERROR: create_nn: could not allocate biases list (%lu bytes).\n",
+                sizeof(array*) * to_ret->n_weights);
+        return NULL;
+    } else if (to_ret->weights == NULL) {
+        fprintf(stderr, "ERROR: create_nn: could not allocate weights list (%lu bytes).\n",
+                sizeof(matrix*) * to_ret->n_weights);
+        return NULL;
+    }
+
+    // Fill in the size values
     to_ret->n_layers = n_hidden_layers + 2;
     to_ret->n_weights = to_ret->n_layers - 1;
 
     // Store the number of nodes per layer
-    to_ret->nodes_per_layer = malloc(sizeof(size_t) * to_ret->n_layers);
     for (size_t i = 0; i < n_hidden_layers; i++) {
         to_ret->nodes_per_layer[i + 1] = hidden_nodes[i];
     }
@@ -83,12 +105,20 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
     to_ret->nodes_per_layer[0] = input_nodes;
     to_ret->nodes_per_layer[to_ret->n_layers - 1] = output_nodes;
     
-    // Initialise the weights of the neural network randomly
-    to_ret->biases = malloc(sizeof(matrix*) * to_ret->n_weights);
-    to_ret->weights = malloc(sizeof(matrix*) * to_ret->n_weights);
+    // Initialise the biases and weights of the neural network randomly
     for (size_t i = 0; i < to_ret->n_weights; i++) {
-        to_ret->biases[i] = initialise_biases(to_ret->nodes_per_layer[i + 1]);
-        to_ret->weights[i] = initialise_weights(to_ret->nodes_per_layer[i], to_ret->nodes_per_layer[i + 1]);
+        to_ret->biases[i] = initialize_biases(to_ret->nodes_per_layer[i + 1]);
+        if (to_ret->biases[i] == NULL) {
+            fprintf(stderr, "ERROR: create_nn: could not initialize bias (%lu/%lu).\n",
+                    i + 1, to_ret->n_weights);
+            return NULL;
+        }
+        to_ret->weights[i] = initialize_weights(to_ret->nodes_per_layer[i], to_ret->nodes_per_layer[i + 1]);
+        if (to_ret->weights[i] == NULL) {
+            fprintf(stderr, "ERROR: create_nn: could not initialize weight (%lu/%lu).\n",
+                    i + 1, to_ret->n_weights)
+            return NULL;
+        }
     }
 
     // Done, return
@@ -98,8 +128,10 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
 void destroy_nn(neural_net* nn) {
     free(nn->nodes_per_layer);
     for (size_t i = 0; i < nn->n_weights; i++) {
+        destroy_array(nn->biases[i]);
         destroy_matrix(nn->weights[i]);
     }
+    free(nn->biases);
     free(nn->weights);
     free(nn);
 }
@@ -108,17 +140,21 @@ void destroy_nn(neural_net* nn) {
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*act)(matrix*)) {
+void nn_activate_all(neural_net* nn, array* outputs, const matrix* inputs, matrix* (*act)(matrix*)) {
     // Copy the input matrix to be sure we do not deallocate it
-    matrix* inputs2 = copy_matrix_new(inputs);
+    outputs[0] = copy_create_array(inputs);
 
     // Iterate over each layer to feedforward through the network
-    for (size_t i = 0; i < nn->n_weights; i++) {
-        // Store the output without bias in the list
-        outputs[i] = inputs2;
+    for (size_t l = 1; l < nn->n_layers; l++) {
+        create_array[i]
+
+        // Compute the activation for each node on this layer
+        for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
+            
+        }
 
         // Then, compute the input values for the nodes in this layer
-        matrix* z = matrix_matmul(inputs2, nn->weights[i]);
+        matrix* z = matrix_matmul(outputs, nn->weights[i]);
 
         // Add the bias if we're in a hidden layer
         matrix_add_inplace(z, nn->biases[i]);
@@ -127,7 +163,7 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
         act(z);
 
         // Set z as the new one
-        inputs2 = z;
+        outputs[i] = z;
     }
     // Add the output from the final layer in the outputs
     outputs[nn->n_layers - 1] = inputs2;

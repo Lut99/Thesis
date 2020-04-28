@@ -42,12 +42,16 @@ test_matrix: $(TST)/test_matrix.c $(OBJ)/Matrix.o
 test_nn: $(TST)/test_nn.c $(OBJ)/NeuralNetwork.a
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/NeuralNetwork.a -lm
 
-tests: test_matrix test_nn
+test_array: $(TST)/test_array.c $(OBJ)/Array.o
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Array.o
+
+tests: test_matrix test_nn test_array
 	$(info )
 	$(info Running tests...)
 	$(info )
 	$(TST_BIN)/test_matrix.out
 	$(TST_BIN)/test_nn.out
+	$(TST_BIN)/test_array.out
 
 plot:
 	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""

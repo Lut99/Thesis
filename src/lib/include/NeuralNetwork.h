@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 19:25:07
+ *   28/04/2020, 19:53:07
  * Auto updated?
  *   Yes
  *
@@ -18,6 +18,7 @@
 #ifndef _NEURAL_NETWORK_H
 #define _NEURAL_NETWORK_H
 
+#include "Array.h"
 #include "Matrix.h"
 
 
@@ -31,7 +32,7 @@ typedef struct NEURALNET {
     /* The number of weights in the neural network. Equal to the number of layers minus 1. */
     size_t n_weights;
     /* List of biases for each layer, save the output layer. */
-    matrix** biases;
+    array** biases;
     /* List of weights for each layer. */
     matrix** weights;
 } neural_net;
