@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 00:47:29
+ *   28/04/2020, 17:09:24
  * Auto updated?
  *   Yes
  *
@@ -60,7 +60,7 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
+matrix* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
 
 /* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
 void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));

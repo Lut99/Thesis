@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   28/04/2020, 16:50:22
+ *   28/04/2020, 17:10:01
  * Auto updated?
  *   Yes
  *
@@ -28,7 +28,7 @@
 /* Percentage of data that will be used for training, the rest is for testing. */
 #define TRAIN_RATIO 0.8
 /* Number of iterations that the neural network will be trained on. */
-#define TRAIN_ITERATIONS 10000
+#define TRAIN_ITERATIONS 100000
 /* Learning rate of the Neural Network. */
 #define TRAIN_ETA 0.0005
 
@@ -275,15 +275,15 @@ int main(int argc, char** argv) {
 
     // Train the neural network for ITERATIONS iterations
     printf("  Training...\n");
-    double* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, hyperbolic_tangent, dydx_hyperbolic_tangent);
+    matrix* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
     printf("  Writing costs...\n\n");
     // Write the costs for plotting
-    write_costs(TRAIN_ITERATIONS, costs);
+    write_costs(costs->cols, costs->data);
 
     printf("Validating network...\n");
 
     // Test the network and report the accuracy
-    matrix* outputs = nn_activate(nn, digits_test, hyperbolic_tangent);
+    matrix* outputs = nn_activate(nn, digits_test, sigmoid);
     nn_flatten_results(outputs);
     matrix_print(outputs);
     int correct = 0;
@@ -306,8 +306,8 @@ int main(int argc, char** argv) {
     destroy_matrix(classes_train);
     destroy_matrix(classes_test);
     destroy_matrix(outputs);
+    destroy_matrix(costs);
     destroy_nn(nn);
-    free(costs);
     fclose(data);
 
     printf("Done.\n\n");
