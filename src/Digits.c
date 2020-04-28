@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   28/04/2020, 17:10:01
+ *   28/04/2020, 19:28:19
  * Auto updated?
  *   Yes
  *
@@ -285,7 +285,6 @@ int main(int argc, char** argv) {
     // Test the network and report the accuracy
     matrix* outputs = nn_activate(nn, digits_test, sigmoid);
     nn_flatten_results(outputs);
-    matrix_print(outputs);
     int correct = 0;
     for (size_t y = 0; y < outputs->rows; y++) {
         bool error = false;
