@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 00:47:29
+ *   28/04/2020, 19:25:07
  * Auto updated?
  *   Yes
  *
@@ -50,25 +50,25 @@ void destroy_nn(neural_net* nn);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-/* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs. The results of each layer are returned in the given output list of newly allocated matrices. */
+/* Activates the neural network using the given activation function (which should operate on vectors) and using given (single) sample. The results of each layer are returned in the given output list of newly allocated matrices. */
 void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*act)(matrix*));
 
-/* Activates the neural network using the given activation function (which should operate on matrices) and using given inputs, except that this only returns the outputs of the last layer. */
+/* Wraps nn_active_all in a manner that it allows multiple samples to be inputted at once and that it discards all intermediate outputs, except that of the last layer. */
 matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*));
 
-/* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. The given partial derivative of the cost function is used to translate from deltas to the change in weights. */
+/* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. While the cost function is fixed (Mean Square Error), the activation function is provided via a function pointer. */
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*));
 
-/* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
-double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
+/* Trains the network for at most max_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. Additionally, stops executing once the cost changed less than a certain threshold (ITERATION_STOP_MARGIN in NeuralNetwork.c) compared to the previous iteration. */
+matrix* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t max_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
 
-/* Trains the network for n_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. */
+/* Trains the network for n_iterations iterations. This version does nothing with costs to avoid overhead, and therefore also has a constant number of training iterations. */
 void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
 
 
 /***** USEFUL TOOLS *****/
 
-/* For all columns in the matrix, sets each value to zero except the largest value. For two equal values, the first one is chosen so that there is only one. The result is returned in the given matrix (inplace). */
+/* For all rows in the matrix, sets each value to zero except the largest value. For two equal values, the first one is chosen so that there is only one. The result is returned in the given matrix (inplace). */
 matrix* nn_flatten_results(matrix* outputs);
 
 #endif

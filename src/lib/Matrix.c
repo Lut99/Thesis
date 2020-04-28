@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   28/04/2020, 15:54:20
+ *   28/04/2020, 17:36:34
  * Auto updated?
  *   Yes
  *
@@ -25,9 +25,19 @@
 matrix* create_empty_matrix(size_t rows, size_t cols) {
     // Create a new struct and allocate the pointer to the data
     matrix* to_ret = malloc(sizeof(matrix));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_empty_matrix: Could not allocated memory for the matrix struct (%lu bytes)\n",
+                sizeof(matrix));
+        return NULL;
+    }
     to_ret->rows = rows;
     to_ret->cols = cols;
     to_ret->data = malloc(rows * cols * sizeof(double));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_empty_matrix: Could not allocated memory for the data field (%lu bytes)\n",
+                rows * cols * sizeof(double));
+        return NULL;
+    }
 
     // Return it
     return to_ret;

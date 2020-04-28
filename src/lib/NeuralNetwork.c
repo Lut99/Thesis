@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 16:49:28
+ *   28/04/2020, 19:26:29
  * Auto updated?
  *   Yes
  *
@@ -26,7 +26,7 @@
 #define WEIGHTS_MAX 3.0
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
-#define BIAS 1.0
+#define ITERATION_STOP_MARGIN 0.000001
 
 
 /***** HELPER FUNCTIONS *****/
@@ -52,24 +52,11 @@ matrix* initialise_biases(size_t n_nodes) {
 
     // Set each value to a random one in the range BIAS_MIN (inclusive) and BIAS_MAX (exclusive)
     for (size_t i = 0; i < to_ret->rows * to_ret->cols; i++) {
-        to_ret->data[i] = BIAS;//(double)rand()/RAND_MAX * (BIAS_MAX - BIAS_MIN) + BIAS_MIN;
+        to_ret->data[i] = (double)rand()/RAND_MAX * (BIAS_MAX - BIAS_MIN) + BIAS_MIN;
     }
 
     // Return the weights
     return to_ret;
-}
-
-matrix* softmax(matrix* z) {
-    // Find the max of z
-    double max = matrix_max(z);
-    // Find the sum while computing the exp of each element
-    double sum = 0;
-    for (size_t i = 0; i < z->cols; i++) {
-        z->data[i] = exp(z->data[i] - max);
-        sum += z->data[i];
-    }
-    // Return the weighted answer
-    return matrix_mul_c_inplace(z, 1 / sum);
 }
 
 
@@ -121,7 +108,6 @@ void destroy_nn(neural_net* nn) {
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-#include "stdio.h"
 void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*act)(matrix*)) {
     // Copy the input matrix to be sure we do not deallocate it
     matrix* inputs2 = copy_matrix_new(inputs);
@@ -139,12 +125,6 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
 
         // Apply the activation function
         act(z);
-        // if (i < nn->n_weights - 1) {
-        //     act(z);
-        // } else {
-        //     // Use the softmax for the last layer
-        //     softmax(z);
-        // }
 
         // Set z as the new one
         inputs2 = z;
@@ -194,10 +174,8 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*)) {
     // Compute the deltas at the output layer first
     matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
-    // matrix* error = matrix_mul(matrix_inv(outputs[nn->n_layers - 1]), expected);
     matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
     destroy_matrix(error);
-    // matrix* deltas = matrix_sub(outputs[nn->n_layers - 1], expected);
 
     // For all other layers, update the weights and the biases. Only compute a new error for all hidden layers.
     for (size_t i = nn->n_layers - 1; i > 0; i--) {
@@ -208,7 +186,7 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
 
         // Compute a new deltas
         matrix* weight_T = matrix_transpose(nn->weights[i - 1]);
-        /*matrix**/ error = matrix_matmul(deltas, weight_T);
+        matrix* error = matrix_matmul(deltas, weight_T);
         destroy_matrix(deltas);
         deltas = matrix_mul_inplace(dydx_act(outputs[i - 1]), error);
 
@@ -230,9 +208,9 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
 
 
 
-double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*)) {
+matrix* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t max_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*)) {
     // Allocate the list for the costs
-    double* costs = malloc(sizeof(double) * n_iterations);
+    matrix* costs = create_empty_matrix(1, max_iterations);
 
     // Create some hacky matrix objects that will be used to quickly reference single rows
     matrix* input = malloc(sizeof(matrix));
@@ -244,8 +222,9 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
     // Perform the training
     matrix* outputs[nn->n_layers];
-    for (size_t i = 0; i < n_iterations; i++) {
-        costs[i] = 0;
+    for (size_t i = 0; i < max_iterations; i++) {
+        costs->data[i] = 0;
+
         for (size_t j = 0; j < inputs->rows; j++) {
             // Assign the current row to the hacky matrices
             input->data = inputs->data + j * inputs->cols;
@@ -256,11 +235,7 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
             // Compute the cost (Mean Squared Error)
             matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
-            costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
-
-            // // Compute the cost (categorical cross entropy)
-            // matrix* err = matrix_mul_inplace(matrix_ln(outputs[nn->n_layers - 1]), input_gold);
-            // costs[i] += -matrix_sum(err);
+            costs->data[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
 
             // Perform a backpropagation
             nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
@@ -274,7 +249,19 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
         // Print the cost once every 100 iterations
         if (i % 100 == 0) {
-            printf("    (Iter %lu) Cost: %.2f\n", i, costs[i]);
+            printf("    (Iter %lu) Cost: %.2f\n", i, costs->data[i]);
+        }
+
+        // Stop if the change in cost is small enough
+        if (i > 0 && fabs(costs->data[i - 1] - costs->data[i]) < ITERATION_STOP_MARGIN) {
+            // Copy the costs to a smaller area
+            matrix* new_costs = create_empty_matrix(1, i + 1);
+            for (size_t j = 0; j <= i; j++) {
+                new_costs->data[j] = costs->data[j];
+            }
+            destroy_matrix(costs);
+            costs = new_costs;
+            break;
         }
     }
 
