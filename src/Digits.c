@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   28/04/2020, 14:52:29
+ *   28/04/2020, 16:50:22
  * Auto updated?
  *   Yes
  *
@@ -28,9 +28,9 @@
 /* Percentage of data that will be used for training, the rest is for testing. */
 #define TRAIN_RATIO 0.8
 /* Number of iterations that the neural network will be trained on. */
-#define TRAIN_ITERATIONS 200
+#define TRAIN_ITERATIONS 10000
 /* Learning rate of the Neural Network. */
-#define TRAIN_ETA 0.006
+#define TRAIN_ETA 0.0005
 
 
 static unsigned int row = 1;
@@ -285,16 +285,17 @@ int main(int argc, char** argv) {
     // Test the network and report the accuracy
     matrix* outputs = nn_activate(nn, digits_test, hyperbolic_tangent);
     nn_flatten_results(outputs);
+    matrix_print(outputs);
     int correct = 0;
     for (size_t y = 0; y < outputs->rows; y++) {
         bool error = false;
         for (size_t x = 0; x < outputs->cols; x++) {
-            error = error || outputs->data[y * outputs->cols + x] != classes_test->data[y * classes_test->cols + x];
+            error = error || ((int) outputs->data[y * outputs->cols + x] != (int) classes_test->data[y * classes_test->cols + x]);
         }
-        correct += error ? 1 : 0;
+        correct += !error ? 1 : 0;
     }
 
-    printf("Network accuracy: %f\n\n", (correct / (double)n_samples));
+    printf("Network accuracy: %f\n\n", (correct / (double)outputs->rows));
 
     // Cleanup
     printf("Cleaning up...\n");

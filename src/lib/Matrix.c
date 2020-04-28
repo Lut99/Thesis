@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   28/04/2020, 00:55:43
+ *   28/04/2020, 15:54:20
  * Auto updated?
  *   Yes
  *
@@ -467,14 +467,22 @@ matrix* matrix_ln(const matrix *m1) {
     // Create a new matrix, copy the the ln of each element of m1 and return
     matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
-        to_ret->data[i] = log(m1->data[i]);
+        if (fabs(m1->data[i]) > 0.0001) {
+            to_ret->data[i] = log(m1->data[i]);
+        } else {
+            to_ret->data[i] = 0.0;
+        }
     }
     return to_ret;
 }
 matrix* matrix_ln_inplace(matrix *m1) {
     // Take ln of each element, then return m1 to allow chaining
     for (size_t i = 0; i < m1->rows * m1->cols; i++) {
-        m1->data[i] = log(m1->data[i]);
+        if (fabs(m1->data[i]) > 0.0001) {
+            m1->data[i] = log(m1->data[i]);
+        } else {
+            m1->data[i] = 0.0;
+        }
     }
     return m1;
 }

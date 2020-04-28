@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 14:48:15
+ *   28/04/2020, 16:49:28
  * Auto updated?
  *   Yes
  *
@@ -134,17 +134,17 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
         // Then, compute the input values for the nodes in this layer
         matrix* z = matrix_matmul(inputs2, nn->weights[i]);
 
-
         // Add the bias if we're in a hidden layer
         matrix_add_inplace(z, nn->biases[i]);
 
         // Apply the activation function
-        if (i < nn->n_weights - 1) {
-            act(z);
-        } else {
-            // Use the softmax for the last layer
-            softmax(z);
-        }
+        act(z);
+        // if (i < nn->n_weights - 1) {
+        //     act(z);
+        // } else {
+        //     // Use the softmax for the last layer
+        //     softmax(z);
+        // }
 
         // Set z as the new one
         inputs2 = z;
@@ -164,7 +164,7 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*
 
     // Prepare the buffer for all the intermediate outputs
     matrix* outputs[nn->n_layers];
-    
+
     // Loop through all samples
     for (size_t y = 0; y < inputs->rows; y++) {
         // Use the hacky matrix to select only the current row
@@ -193,11 +193,11 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*
 
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*)) {
     // Compute the deltas at the output layer first
-    //matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
+    matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
     // matrix* error = matrix_mul(matrix_inv(outputs[nn->n_layers - 1]), expected);
-    // matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
-    // destroy_matrix(error);
-    matrix* deltas = matrix_sub(outputs[nn->n_layers - 1], expected);
+    matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
+    destroy_matrix(error);
+    // matrix* deltas = matrix_sub(outputs[nn->n_layers - 1], expected);
 
     // For all other layers, update the weights and the biases. Only compute a new error for all hidden layers.
     for (size_t i = nn->n_layers - 1; i > 0; i--) {
@@ -208,7 +208,7 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
 
         // Compute a new deltas
         matrix* weight_T = matrix_transpose(nn->weights[i - 1]);
-        matrix* error = matrix_matmul(deltas, weight_T);
+        /*matrix**/ error = matrix_matmul(deltas, weight_T);
         destroy_matrix(deltas);
         deltas = matrix_mul_inplace(dydx_act(outputs[i - 1]), error);
 
@@ -254,14 +254,14 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
             // First, perform a forward pass through the network
             nn_activate_all(nn, outputs, input, act);
 
-            // // Compute the cost (Mean Squared Error)
-            // matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
-            // costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
+            // Compute the cost (Mean Squared Error)
+            matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
+            costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
 
-            // Compute the cost (categorical cross entropy)
-            matrix* err = matrix_mul_inplace(matrix_ln(outputs[nn->n_layers - 1]), input_gold);
-            costs[i] += -matrix_sum(err);
-            
+            // // Compute the cost (categorical cross entropy)
+            // matrix* err = matrix_mul_inplace(matrix_ln(outputs[nn->n_layers - 1]), input_gold);
+            // costs[i] += -matrix_sum(err);
+
             // Perform a backpropagation
             nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
 
@@ -302,10 +302,10 @@ void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, doub
             // Assign the current row to the hacky matrices
             input->data = inputs->data + j * inputs->cols;
             input_gold->data = expected->data + j * expected->cols;
-            
+
             // First, perform a forward pass through the network
             nn_activate_all(nn, outputs, input, act);
-            
+
             // Perform a backpropagation
             nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
 
@@ -326,33 +326,18 @@ void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, doub
 /***** USEFUL TOOLS *****/
 
 matrix* nn_flatten_results(matrix* outputs) {
-    double highest_indices[outputs->cols];
-    double highest_values[outputs->cols];
-    // Set highest values to -inf
-    for (size_t i = 0; i < outputs->cols; i++) {
-        highest_indices[i] = 0;
-        highest_values[i] = -INFINITY;
-    }
-
-    // First pass: find the highest values with matching index
     for (size_t y = 0; y < outputs->rows; y++) {
+        double highest_index = 0;
+        double highest_value = -INFINITY;
         for (size_t x = 0; x < outputs->cols; x++) {
             double data = outputs->data[y * outputs->cols + x];
-            if (data > highest_values[x]) {
-                highest_indices[x] = y;
-                highest_values[x] = data;
+            if (data > highest_value) {
+                highest_index = x;
+                highest_value = data;
             }
         }
-    }
-
-    // Now do another pass where all values are set to zero (except the highest ones)
-    for (size_t y = 0; y < outputs->rows; y++) {
         for (size_t x = 0; x < outputs->cols; x++) {
-            if (y == highest_indices[x]) {
-                outputs->data[y * outputs->cols + x] = 1;
-            } else {
-                outputs->data[y * outputs->cols + x] = 0;
-            }
+            outputs->data[y * outputs->cols + x] = x == highest_index ? 1 : 0;
         }
     }
 
