@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 01:17:36
+ *   28/04/2020, 13:42:35
  * Auto updated?
  *   Yes
  *
@@ -117,9 +117,10 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
     for (size_t i = 0; i < nn->n_weights; i++) {
         // Store the output without bias in the list
         outputs[i] = inputs2;
-        
+
         // Then, compute the input values for the nodes in this layer
         matrix* z = matrix_matmul(inputs2, nn->weights[i]);
+
 
         // Add the bias if we're in a hidden layer
         matrix_add_inplace(z, nn->biases[i]);
@@ -235,14 +236,14 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
     for (size_t i = nn->n_layers - 1; i > 0; i--) {
         // Compute the d_weights and d_bias
         matrix* d_bias = matrix_mul_c(deltas, learning_rate);
-        matrix* deltas_T = matrix_transpose(deltas);
-        matrix* d_weights = matrix_mul_c_inplace(matrix_matmul(outputs[i - 1], deltas_T), learning_rate);
+        matrix* output_T = matrix_transpose(outputs[i - 1]);
+        matrix* d_weights = matrix_mul_c_inplace(matrix_matmul(output_T, deltas), learning_rate);
 
         // Compute a new deltas
         matrix* weight_T = matrix_transpose(nn->weights[i - 1]);
         error = matrix_matmul(deltas, weight_T);
         destroy_matrix(deltas);
-        deltas = matrix_mul_inplace(dydx_act(outputs[i]), error);
+        deltas = matrix_mul_inplace(dydx_act(outputs[i - 1]), error);
 
         // Update the bias and the weights
         matrix_add_inplace(nn->biases[i - 1], d_bias);
@@ -250,7 +251,7 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
 
         // Cleanup
         destroy_matrix(d_bias);
-        destroy_matrix(deltas_T);
+        destroy_matrix(output_T);
         destroy_matrix(d_weights);
         destroy_matrix(weight_T);
         destroy_matrix(error);
@@ -277,6 +278,7 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
     // Perform the training
     matrix* outputs[nn->n_layers];
     for (size_t i = 0; i < n_iterations; i++) {
+        costs[i] = 0;
         for (size_t j = 0; j < inputs->rows; j++) {
             // Assign the current row to the hacky matrices
             input->data = inputs->data + j * inputs->cols;
@@ -287,12 +289,7 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
 
             // Compute the cost (Mean Squared Error)
             matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
-            costs[i] = matrix_sum(matrix_square_inplace(err)) / err->cols;
-
-            // Print the cost once every 100 iterations
-            if (i % 100 == 0) {
-                printf("    (Iter %lu) Cost: %.2f\n", i, costs[i]);
-            }
+            costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
             
             // Perform a backpropagation
             nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
@@ -302,6 +299,11 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
                 destroy_matrix(outputs[i]);
             }
             destroy_matrix(err);
+        }
+
+        // Print the cost once every 100 iterations
+        if (i % 100 == 0) {
+            printf("    (Iter %lu) Cost: %.2f\n", i, costs[i]);
         }
     }
 

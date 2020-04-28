@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   28/04/2020, 01:17:59
+ *   28/04/2020, 12:38:04
  * Auto updated?
  *   Yes
  *
@@ -211,7 +211,7 @@ bool test_training_simple() {
     destroy_matrix(m_in);
     destroy_matrix(m_exp);
     destroy_matrix(m_out);
-    // free(costs);
+    free(costs);
 
     // Return the succes status
     return succes;

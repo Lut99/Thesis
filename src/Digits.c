@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   27/04/2020, 22:13:21
+ *   28/04/2020, 13:35:28
  * Auto updated?
  *   Yes
  *
@@ -30,7 +30,7 @@
 /* Number of iterations that the neural network will be trained on. */
 #define TRAIN_ITERATIONS 25000
 /* Learning rate of the Neural Network. */
-#define TRAIN_ETA 0.00000001
+#define TRAIN_ETA 0.005
 
 
 static unsigned int row = 1;
@@ -176,19 +176,20 @@ int main(int argc, char** argv) {
     int status = get_num(data, &num);
     int i;
     for (i = 0; status > 0; i++) {
+        int i_row = (i - 2) % 65;
         if (i == 0) {
             // Fill the number of sampels in first so we can allocate the array
             n_samples = num;
-            digits = create_empty_matrix(64, n_samples);
+            digits = create_empty_matrix(n_samples, 64);
         } else if (i == 1) {
             // Fill in the number of classes for the output layer
             n_classes = num;
-            classes = create_empty_matrix(n_classes, n_samples);
+            classes = create_empty_matrix(n_samples, n_classes);
             // Fill it with zeros
             for (size_t i = 0; i < classes->rows * classes->cols; i++) {
                 classes->data[i] = 0;
             }
-        } else if ((i - 2) % 65 == 0) {
+        } else if (i_row == 0) {
             // First every 65: note the class
             matrix_i++;
             if (num >= n_classes) {
@@ -199,7 +200,7 @@ int main(int argc, char** argv) {
                         row, col, num, n_classes - 1);
                 return -1;
             }
-            classes->data[num * classes->cols + matrix_i] = 1;
+            classes->data[matrix_i * classes->cols + num] = 1;
         } else {
             // One of the 64 datapoints: fill in the matrix
             if (num > 16) {
@@ -210,7 +211,7 @@ int main(int argc, char** argv) {
                         row, col, num);
                 return -1;
             }
-            digits->data[(((i - 2) % 65) - 1) * digits->cols + matrix_i] = num;
+            digits->data[matrix_i * digits->cols + (i_row - 1)] = num;
         }
         
         status = get_num(data, &num);
@@ -262,10 +263,10 @@ int main(int argc, char** argv) {
     // Create training and testing subsets of the digits and classes matrix
     printf("  Splitting test and train sets...\n");
     int training_size = n_samples * TRAIN_RATIO;
-    matrix* digits_train = subset_matrix(digits, 0, 64, 0, training_size);
-    matrix* digits_test = subset_matrix(digits, 0, 64, training_size + 1, n_samples);
-    matrix* classes_train = subset_matrix(classes, 0, n_classes, 0, training_size);
-    matrix* classes_test = subset_matrix(classes, 0, n_classes, training_size + 1, n_samples);
+    matrix* digits_train = subset_matrix(digits, 0, training_size, 0, 64);
+    matrix* digits_test = subset_matrix(digits, training_size + 1, n_samples, 0, 64);
+    matrix* classes_train = subset_matrix(classes, 0, training_size, 0, n_classes);
+    matrix* classes_test = subset_matrix(classes, training_size + 1, n_samples, 0, n_classes);
 
     // Create a new neural network
     printf("  Initializing Neural Network...\n");
@@ -274,7 +275,7 @@ int main(int argc, char** argv) {
 
     // Train the neural network for ITERATIONS iterations
     printf("  Training...\n");
-    double* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, hyperbolic_tangent, dydx_hyperbolic_tangent, mean_squared_error, dydx_mean_squared_error);
+    double* costs = nn_train_costs(nn, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, hyperbolic_tangent, dydx_hyperbolic_tangent);
     printf("  Writing costs...\n\n");
     // Write the costs for plotting
     write_costs(TRAIN_ITERATIONS, costs);
@@ -285,16 +286,16 @@ int main(int argc, char** argv) {
     matrix* outputs = nn_activate(nn, digits_test, hyperbolic_tangent);
     nn_flatten_results(outputs);
     int correct = 0;
-    for (size_t x = 0; x < outputs->cols; x++) {
-        int errors = 0;
-        for (size_t y = 0; y < outputs->rows; y++) {
-            errors += outputs->data[y * outputs->cols + x] != classes_test->data[y * outputs->cols + x];
+    for (size_t y = 0; y < outputs->rows; y++) {
+        bool error = false;
+        for (size_t x = 0; x < outputs->cols; x++) {
+            error = error || outputs->data[y * outputs->cols + x] != classes_test->data[y * classes_test->cols + x];
         }
-        correct += errors == 0;
+        correct += error ? 1 : 0;
     }
 
     printf("Network accuracy: %f\n\n", (correct / (double)n_samples));
-    
+
     // Cleanup
     printf("Cleaning up...\n");
     destroy_matrix(digits);
