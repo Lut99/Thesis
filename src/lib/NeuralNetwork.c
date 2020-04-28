@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 13:42:35
+ *   28/04/2020, 14:48:15
  * Auto updated?
  *   Yes
  *
@@ -57,6 +57,19 @@ matrix* initialise_biases(size_t n_nodes) {
 
     // Return the weights
     return to_ret;
+}
+
+matrix* softmax(matrix* z) {
+    // Find the max of z
+    double max = matrix_max(z);
+    // Find the sum while computing the exp of each element
+    double sum = 0;
+    for (size_t i = 0; i < z->cols; i++) {
+        z->data[i] = exp(z->data[i] - max);
+        sum += z->data[i];
+    }
+    // Return the weighted answer
+    return matrix_mul_c_inplace(z, 1 / sum);
 }
 
 
@@ -126,7 +139,12 @@ void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix
         matrix_add_inplace(z, nn->biases[i]);
 
         // Apply the activation function
-        act(z);
+        if (i < nn->n_weights - 1) {
+            act(z);
+        } else {
+            // Use the softmax for the last layer
+            softmax(z);
+        }
 
         // Set z as the new one
         inputs2 = z;
@@ -173,64 +191,13 @@ matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*
     return to_ret;
 }
 
-// void nn_backpropagate_old(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate) {
-//     // Compute the error on the output layer
-//     // Compute the activation of this layer
-//     matrix* in = matrix_matmul(nn->weights[nn->n_weights - 1], outputs[nn->n_weights - 1]);
-//     matrix* act = dydx_act(in);
-//     // Compute the activation times the derivative of the cost function
-//     matrix* error = matrix_mul_c_inplace(act, dydx_cost(outputs[nn->n_layers - 1], expected));
-//     destroy_matrix(in);
-
-//     // Loop backwards through all the layers
-//     for (size_t i = nn->n_layers - 2; i <= nn->n_layers - 2; i--) {
-//         // Compute the weights deltas with the old error
-//         matrix* output_T = matrix_transpose(outputs[i]);
-//         matrix* d_weights = matrix_matmul(error, output_T);
-
-//         if (i > 0) {
-//             // Compute the delta bias for this layer
-//             double d_bias = matrix_sum(error);
-
-//             // Get the input through the derivative of the activation function. Don't forget to add the bias.
-//             in = matrix_matmul(nn->weights[i - 1], outputs[i - 1]);
-//             matrix_add_c_inplace(act, nn->biases[i]);
-//             act = dydx_act(in);
-
-//             // Compute the new error based on the input
-//             matrix* weights_T = matrix_transpose(nn->weights[i]);
-//             matrix* weighted_err = matrix_matmul(weights_T, error);
-//             destroy_matrix(error);
-//             error = matrix_mul_inplace(weighted_err, act);
-
-//             // Update the bias matrix
-//             nn->biases[i] -= learning_rate * d_bias;
-
-//             // Cleanup
-//             destroy_matrix(in);
-//             destroy_matrix(act);
-//             destroy_matrix(weights_T);
-//         }
-
-
-
-//         // Update the weights of this layer
-//         matrix_sub_inplace(nn->weights[i], matrix_mul_c_inplace(d_weights, learning_rate));
-
-//         // Cleanup
-//         destroy_matrix(output_T);
-//         destroy_matrix(d_weights);
-//     }
-
-//     // Cleanup the error
-//     destroy_matrix(error);
-// }
-
 void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*)) {
     // Compute the deltas at the output layer first
-    matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
-    matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
-    destroy_matrix(error);
+    //matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
+    // matrix* error = matrix_mul(matrix_inv(outputs[nn->n_layers - 1]), expected);
+    // matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
+    // destroy_matrix(error);
+    matrix* deltas = matrix_sub(outputs[nn->n_layers - 1], expected);
 
     // For all other layers, update the weights and the biases. Only compute a new error for all hidden layers.
     for (size_t i = nn->n_layers - 1; i > 0; i--) {
@@ -241,7 +208,7 @@ void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matri
 
         // Compute a new deltas
         matrix* weight_T = matrix_transpose(nn->weights[i - 1]);
-        error = matrix_matmul(deltas, weight_T);
+        matrix* error = matrix_matmul(deltas, weight_T);
         destroy_matrix(deltas);
         deltas = matrix_mul_inplace(dydx_act(outputs[i - 1]), error);
 
@@ -287,9 +254,13 @@ double* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expec
             // First, perform a forward pass through the network
             nn_activate_all(nn, outputs, input, act);
 
-            // Compute the cost (Mean Squared Error)
-            matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
-            costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
+            // // Compute the cost (Mean Squared Error)
+            // matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
+            // costs[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
+
+            // Compute the cost (categorical cross entropy)
+            matrix* err = matrix_mul_inplace(matrix_ln(outputs[nn->n_layers - 1]), input_gold);
+            costs[i] += -matrix_sum(err);
             
             // Perform a backpropagation
             nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);

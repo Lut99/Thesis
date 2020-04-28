@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   27/04/2020, 15:47:53
+ *   28/04/2020, 14:03:10
  * Auto updated?
  *   Yes
  *
@@ -44,17 +44,20 @@ matrix* dydx_hyperbolic_tangent(const matrix* z);
 
 /***** COST FUNCTIONS *****/
 
-/* Implements the Mean Squared Error as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. */
+/* Implements the Mean Squared Error as cost function. Both matrices should be matrices of the same length. */
 double mean_squared_error(const matrix* output, const matrix* expected);
 
-/* Implements some other cost function as cost function. Both matrices should be vectors of the same length, and if they aren't, a negative double (-1) is returned and an error to stderr is printed. */
-double other_cost_func(const matrix* output, const matrix* expected);
+/* Implements the categorical cross entropy cost function. Both matrices should be matrices of the same length. */
+double categorical_cross_entropy(const matrix* output, const matrix* expected);
 
 
 
 /***** COST FUNCTIONS (PARTIAL) DERIVATIVES *****/
 
-/* Implements the partial derivative of some other cost function that returns the change in weights for given deltas of the next layer and given outputs of this layer. */
+/* Implements the partial derivative of the mean squared error cost function that returns the change in weights for given deltas of the next layer and given outputs of this layer. */
 double dydx_mean_squared_error(const matrix* output, const matrix* expected);
+
+/* Implements the partial derivative of the categorical cross entropy cost function that returns the change in weights for given deltas of the next layer and given outputs of this layer. */
+double dydx_categorical_cross_entropy(const matrix* output, const matrix* expected);
 
 #endif

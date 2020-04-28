@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   27/04/2020, 23:29:01
+ *   28/04/2020, 14:48:28
  * Auto updated?
  *   Yes
  *
@@ -43,6 +43,19 @@ matrix* simple(matrix* z) {
     return z;
 }
 
+// matrix* softmax(matrix* z) {
+//     // Find the max of z
+//     double max = matrix_max(z);
+//     // Find the sum while computing the exp of each element
+//     double sum = 0;
+//     for (size_t i = 0; i < z->cols; i++) {
+//         z->data[i] = exp(z->data[i] - max);
+//         sum += z->data[i];
+//     }
+//     // Return the weighted answer
+//     return matrix_mul_c_inplace(z, 1 / sum);
+// }
+
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
@@ -69,21 +82,19 @@ matrix* dydx_hyperbolic_tangent(const matrix* z) {
     return tanh_z2;
 }
 
+matrix* dydx_softmax(const matrix* z) {
+    // Find the max
+    double max = matrix_max(z);
+    for (size_t i = 0; i < z->cols; i++) {
+        
+    }
+}
+
 
 
 /***** COST FUNCTIONS *****/
 
 double mean_squared_error(const matrix* output, const matrix* expected) {
-    // Sanity check to make sure the matrices have the correct size
-    if (output->rows != expected->rows || output->cols != expected->cols) {
-        fprintf(stderr, "ERROR: mean_squared_error: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
-                output->rows,
-                output->cols,
-                expected->rows,
-                expected->cols);
-        return -1;
-    }
-
     // Subtract one matrix from the other (output - expected)
     matrix* error = matrix_sub(output, expected);
     // Square the values ((output - expected) ^ 2)
@@ -96,41 +107,16 @@ double mean_squared_error(const matrix* output, const matrix* expected) {
     return sum / 2;// / expected->rows;
 }
 
-double other_cost_func (const matrix* output, const matrix* expected) {
-    // Sanity check to make sure the matrices have the correct size
-    if (output->rows != expected->rows || output->cols != expected->cols) {
-        fprintf(stderr, "ERROR: other_cost_func: matrix output (%ldx%ld) and expected (%ldx%ld) do not have the same sizes\n",
-                output->rows,
-                output->cols,
-                expected->rows,
-                expected->cols);
-        return -1;
-    }
-    
-    // Compute ln(output)
-    matrix* output_ln = matrix_ln(output);
-    // Compute ln(1 - output)
-    matrix* output_ln_m1 = matrix_ln_inplace(matrix_sub2_c(1, output));
-    // Compute 1 - expected
-    matrix* expected_m1 = matrix_sub2_c(1, expected);
-
+double categorical_cross_entropy(const matrix* output, const matrix* expected) {
+    // Compute the log of the output
+    matrix* ln_output = matrix_ln(output);
     // Compute expected * ln(output)
-    matrix* term = matrix_mul(expected, output_ln);
-    // Compute (1 - expected) * ln(1 - output)
-    matrix* term2 = matrix_mul_inplace(expected_m1, output_ln_m1);
-    // Compute expected * ln(output) + (1 - expected) * ln(1 - output)
-    matrix_add_inplace(term, term2);
-    // Take the sum of this term
-    double cost = matrix_sum(term);
-    
-    // Cleanup
-    destroy_matrix(output_ln_m1);
-    destroy_matrix(output_ln);
-    destroy_matrix(term);
-    destroy_matrix(term2);
-
-    // Return the negative cost
-    return -cost;
+    matrix* error = matrix_mul_inplace(ln_output, expected);
+    // Return the negative sum
+    double sum = matrix_sum(error);
+    // Clean the new matrix
+    destroy_matrix(error);
+    return -sum;
 }
 
 
@@ -146,4 +132,16 @@ double dydx_mean_squared_error(const matrix* output, const matrix* expected) {
     destroy_matrix(error);
     // Return the result normalised
     return /*(-2 / expected->rows) **/ sum;
+}
+
+double dydx_categorical_cross_entropy(const matrix* output, const matrix* expected) {
+    // Compute the log of the output
+    matrix* ln_output = matrix_inv(output);
+    // Compute expected * ln(output)
+    matrix* error = matrix_mul_inplace(ln_output, expected);
+    // Return the negative sum
+    double sum = matrix_sum(error);
+    // Clean the new matrix
+    destroy_matrix(error);
+    return -sum;
 }
