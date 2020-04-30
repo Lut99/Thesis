@@ -43,7 +43,7 @@ test_nn: $(TST)/test_nn.c $(OBJ)/NeuralNetwork.a
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/NeuralNetwork.a -lm
 
 test_array: $(TST)/test_array.c $(OBJ)/Array.o
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Array.o
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Array.o -lm
 
 tests: test_matrix test_nn test_array
 	$(info )

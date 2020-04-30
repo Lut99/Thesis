@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   28/04/2020, 00:59:14
+ *   30/04/2020, 15:57:20
  * Auto updated?
  *   Yes
  *
@@ -19,34 +19,57 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include "Scratchpad.h"
+
 /* The struct that contains all data for a matrix, i.e., the size and a matrix. */
 typedef struct MATRIX {
     size_t rows;
     size_t cols;
+    size_t size;
     double* data;
 } matrix;
 
 
 
-/***** MEMORY MANAGEMENT *****/
+/* Expands to an expression that indices the data in a multi-dimensional matrix. */
+#define INDEX(MATRIX, ROWS, COLS) (MATRIX->data[ROWS * MATRIX->cols + COLS])
 
-/* Creates a new matrix object with the given size. Values are uninitialised, and note that this object has to be deallocated. */
+
+
+/***** NORMAL MEMORY MANAGEMENT *****/
+
+/* Creates a new matrix object with the given size. Values are left unitialised, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
 matrix* create_empty_matrix(size_t rows, size_t cols);
-/* Creates a new matrix object from given multi-dimensional array. */
-matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]);
-/* Creates a new matrix object from given single-dimensional array. Note that the resulting matrix will always have one column, i.e., it's vertical. */
-matrix* create_vector(size_t rows, const double data[rows]);
+/* Creates a new matrix object with the given size as number of rows and one column. Values are left unitialised, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
+matrix* create_empty_vector(size_t size);
 
-/* Copies given source matrix into the target matrix. Returns NULL and prints to stderr if the sizes are not correct. */
+/* Creates a new matrix object with the given size. Values are copied from given data array, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
+matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]);
+/* Creates a new matrix object with the given size as number of rows and one column. Values are copied from given data array, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
+matrix* create_vector(size_t size, const double data[size]);
+
+/* Creates a new matrix object with the given size. The matrix will simply reference to the given data, i.e., does not copy it. Note that the matrix object itself will be destroyed (which will not destroy the referenced data object). If it fails to allocate, prints to stderr and returns NULL. */
+matrix* link_matrix(size_t rows, size_t cols, double* data);
+/* Creates a new matrix object with the given size as number of rows and one column. The matrix will simply reference to the given data, i.e., does not copy it. Note that the matrix object itself will be destroyed (which will not destroy the referenced data object). If it fails to allocate, prints to stderr and returns NULL. */
+matrix* link_vector(size_t size, double* data);
+
+/* Copies the data from the source matrix into the target matrix, and returns the target matrix. If the sizes of the matrices are not equal, prints to stderr and returns NULL. */
 matrix* copy_matrix(matrix* target, const matrix* source);
-/* Copies given matrix into a new matrix. */
+/* Copies the data from the given matrix into a new matrix, which has to be deallocated later on. If it fails to allocate, prints to stderr and returns NULL. */
 matrix* copy_matrix_new(const matrix* m);
 
-/* Creates a subset of given matrix by copying the data to a new one. The min values are inclusive, while the max values are exclusive. Note that ranges that are too large or too small are automatically bounded to be in range, and also note that this may cause an empty matrix (0x0) to be returned. */
+/* Returns a new matrix which references the data range in given matrix. Note that this matrix has to be deallocated. Prints to stderr and return NULL is the given indices are invalid. */
 matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t col_min, size_t col_max);
 
-/* Destroys a given matrix object. */
+/* Destroys given matrix. Note that its equal to calling free(m) on it. */
 void destroy_matrix(matrix* m);
+
+
+
+/***** SCRATCHPAD MEMORY MANAGEMENT *****/
+
+/* Reserves space on the given scratchpad memory block. If it failed in some way, prints to stderr and returns NULL. */
+matrix* reserve_empty_matrix(scratchpad* pad, size_t rows, size_t cols);
 
 
 

@@ -4,7 +4,7 @@
  * Created:
  *   28/04/2020, 19:36:38
  * Last edited:
- *   28/04/2020, 21:29:57
+ *   30/04/2020, 21:13:11
  * Auto updated?
  *   Yes
  *
@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "Array.h"
 
@@ -108,9 +109,7 @@ array* copy_array(array* target, const array* source) {
     }
 
     // Copy all elements from one to the other
-    for (size_t i = 0; i < target->size; i++) {
-        target->d[i] = source->d[i];
-    }
+    fill_array(target, source->d);
 
     // Done, return
     return target;
@@ -119,10 +118,14 @@ array* copy_array(array* target, const array* source) {
 array* copy_create_array(const array* a) {
     // Create a new array with the same size
     array* to_ret = create_empty_array(a->size);
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: copy_create_array: empty array creation failed.\n");
+        return NULL;
+    }
     
     // Use copy_array to copy the data
     if (copy_array(to_ret, a) == NULL) {
-        fprintf(stderr, "ERROR: copy_create_array: could not copy data.\n");
+        fprintf(stderr, "ERROR: copy_create_array: copying data failed.\n");
         return NULL;
     }
 
@@ -148,6 +151,17 @@ double array_sum(const array* a) {
     }
     return sum;
 }
+
+double array_max(const array* a) {
+    double max = -INFINITY;
+    for (size_t i = 0; i < a->size; i++) {
+        if (a->d[i] > max) {
+            max = a->d[i];
+        }
+    }
+    return max;
+}
+
 
 
 /***** DEBUG FUNCTIONS *****/

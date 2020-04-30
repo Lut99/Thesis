@@ -4,7 +4,7 @@
  * Created:
  *   28/04/2020, 19:29:28
  * Last edited:
- *   28/04/2020, 21:30:45
+ *   30/04/2020, 16:38:53
  * Auto updated?
  *   Yes
  *
@@ -73,6 +73,9 @@ void destroy_array(array* a);
 
 /* Sums all elements in the given array. */
 double array_sum(const array* a);
+
+/* Returns the highest element in the array. */
+double array_max(const array* a);
 
 
 /***** DEBUG FUNCTIONS *****/

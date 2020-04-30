@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   28/04/2020, 17:36:34
+ *   30/04/2020, 21:46:37
  * Auto updated?
  *   Yes
  *
@@ -23,28 +23,57 @@
 /***** MEMORY MANAGEMENT *****/
 
 matrix* create_empty_matrix(size_t rows, size_t cols) {
-    // Create a new struct and allocate the pointer to the data
-    matrix* to_ret = malloc(sizeof(matrix));
+    // Compute the total size of the matrix
+    size_t size = rows * cols;
+
+    // Allocate enough data for the struct to include the data part
+    matrix* to_ret = malloc(sizeof(matrix) + size * sizeof(double));
     if (to_ret == NULL) {
-        fprintf(stderr, "ERROR: create_empty_matrix: Could not allocated memory for the matrix struct (%lu bytes)\n",
-                sizeof(matrix));
+        fprintf(stderr, "ERROR: create_empty_matrix: could not allocate memory (%lu bytes).\n",
+                sizeof(sizeof(matrix) + size * sizeof(double)));
         return NULL;
     }
+
+    // Set the parameters
+    to_ret->size = size;
     to_ret->rows = rows;
     to_ret->cols = cols;
-    to_ret->data = malloc(rows * cols * sizeof(double));
-    if (to_ret == NULL) {
-        fprintf(stderr, "ERROR: create_empty_matrix: Could not allocated memory for the data field (%lu bytes)\n",
-                rows * cols * sizeof(double));
-        return NULL;
-    }
+
+    // Set the data pointer to the second bit of the allocated memory
+    to_ret->data = (double*) (((char*) to_ret) + sizeof(matrix));
 
     // Return it
     return to_ret;
 }
+
+matrix* create_empty_vector(size_t size) {
+    // Allocate enough data for the struct to include the data part
+    matrix* to_ret = malloc(sizeof(matrix) + size * sizeof(double));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_empty_vector: could not allocate memory (%lu bytes).\n",
+                sizeof(sizeof(matrix) + size * sizeof(double)));
+        return NULL;
+    }
+
+    // Set the parameters
+    to_ret->size = size;
+    to_ret->rows = size;
+    to_ret->cols = 1;
+
+    // Set the data pointer to the second bit of the allocated memory
+    to_ret->data = (double*) (((char*) to_ret) + sizeof(matrix));
+
+    // Return it
+    return to_ret;
+}
+
 matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
     // Create an empty matrix with the same dimensions
     matrix* to_ret = create_empty_matrix(rows, cols);
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_matrix: empty matrix creation failed.\n");
+        return NULL;
+    }
 
     // Copy the data from the given pointer
     for (size_t y = 0; y < rows; y++) {
@@ -56,12 +85,17 @@ matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
     // Return
     return to_ret;
 }
-matrix* create_vector(size_t rows, const double data[rows]) {
+
+matrix* create_vector(size_t size, const double data[size]) {
     // Create an empty matrix with the correct dimensions
-    matrix* to_ret = create_empty_matrix(rows, 1);
+    matrix* to_ret = create_empty_vector(size);
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: create_vector: empty vector creation failed.\n");
+        return NULL;
+    }
 
     // Copy the data from the given pointer
-    for (size_t i = 0; i < rows; i++) {
+    for (size_t i = 0; i < size; i++) {
         to_ret->data[i] = data[i];
     }
 
@@ -69,10 +103,67 @@ matrix* create_vector(size_t rows, const double data[rows]) {
     return to_ret;
 }
 
+matrix* initialize_empty_matrix(matrix* block, size_t rows, size_t cols) {
+    // Set the parameters
+    block->size = rows * cols;
+    block->rows = rows;
+    block->cols = cols;
+
+    // Set the data pointer
+    block->data = (double*)(((char*) block) + sizeof(matrix));
+
+    // Return
+    return block;
+}
+
+matrix* link_matrix(size_t rows, size_t cols, double* data) {
+    // Allocate space for just the struct
+    matrix* to_ret = malloc(sizeof(matrix));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: link_matrix: could not allocate memory (%lu bytes).\n",
+                sizeof(sizeof(matrix)));
+        return NULL;
+    }
+
+    // Set the parameters
+    to_ret->size = rows * cols;
+    to_ret->rows = rows;
+    to_ret->cols = cols;
+
+    // Link the data
+    to_ret->data = data;
+
+    // Return
+    return to_ret;
+}
+
+matrix* link_vector(size_t size, double* data) {
+    // Allocate space for just the struct
+    matrix* to_ret = malloc(sizeof(matrix));
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: link_vector: could not allocate memory (%lu bytes).\n",
+                sizeof(sizeof(matrix)));
+        return NULL;
+    }
+
+    // Set the parameters
+    to_ret->size = size;
+    to_ret->rows = size;
+    to_ret->cols = 1;
+
+    // Link the data
+    to_ret->data = data;
+
+    // Return
+    return to_ret;
+}
+
+
+
 matrix* copy_matrix(matrix* target, const matrix* source) {
     // Sanity check that the matrices are correctly sized
     if (target->rows != source->rows || target->cols != source->cols) {
-        fprintf(stderr, "ERROR: copy_matrix: matrix target (%ldx%ld) and source (%ldx%ld) do not have the same sizes\n",
+        fprintf(stderr, "ERROR: copy_matrix: matrix target (%ldx%ld) and source (%ldx%ld) do not have the same sizes.\n",
                 target->rows,
                 target->cols,
                 source->rows,
@@ -81,20 +172,33 @@ matrix* copy_matrix(matrix* target, const matrix* source) {
     }
 
     // Copy the data
-    for (size_t i = 0; i < target->rows * target->cols; i++) {
+    for (size_t i = 0; i < target->size; i++) {
         target->data[i] = source->data[i];
     }
 
     // Return the target for chaining
     return target;
 }
+
 matrix* copy_matrix_new(const matrix* m) {
     // Create an empty matrix with the same dimensions
     matrix* to_ret = create_empty_matrix(m->rows, m->cols);
+    if (to_ret == NULL) {
+        fprintf(stderr, "ERROR: copy_matrix_new: empty matrix creation failed.\n");
+        return NULL;
+    }
 
-    // Copy the data and return
-    return copy_matrix(to_ret, m);
+    // Copy the data
+    if (copy_matrix(to_ret, m) != NULL) {
+        fprintf(stderr, "ERROR: copy_matrix_new: data copying failed.\n");
+        return NULL;
+    }
+
+    // Return
+    return to_ret;
 }
+
+
 
 matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t col_min, size_t col_max) {
     // Make sure that everything is within bounds
@@ -115,23 +219,20 @@ matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t co
         return NULL;
     }
 
-    // Create a new matrix with the correct sizes
-    matrix* to_ret = create_empty_matrix(row_max - row_min, col_max - col_min);
-
-    // Copy the relevant data
-    for (size_t y = row_min; y < row_max; y++) {
-        for (size_t x = col_min; x < col_max; x++) {
-            to_ret->data[(y - row_min) * to_ret->cols + (x - col_min)] = m->data[y * m->cols + x];
-        }
-    }
+    // Compute the pointer to the correct position in the data
+    double* data = m->data + (row_min * m->cols + col_min);
+    
+    // Create a new matrix which links to this data
+    matrix* to_ret = link_matrix(row_max - row_min, col_max - col_min, data);
 
     // Return
     return to_ret;
 }
 
+
+
 void destroy_matrix(matrix* m) {
-    // Free the internal data, then the struct
-    free(m->data);
+    // Due to the genius of making the array in one memory space, we can simply call free
     free(m);
 }
 
@@ -139,17 +240,14 @@ void destroy_matrix(matrix* m) {
 
 /***** MATH *****/
 
-matrix* matrix_transpose(const matrix* m) {
-    // Create a new matrix with inverted size
-    matrix* to_ret = create_empty_matrix(m->cols, m->rows);
-
+matrix* matrix_transpose(const matrix* m1) {
     // Loop and put 'em there
-    for (size_t y = 0; y < m->rows; y++) {
-        for (size_t x = 0; x < m->cols; x++) {
-            to_ret->data[x * to_ret->cols + y] = m->data[y * m->cols + x];
+    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    for (size_t y = 0; y < m1->rows; y++) {
+        for (size_t x = 0; x < m1->cols; x++) {
+            to_ret->data[x * to_ret->cols + y] = m1->data[y * m1->cols + x];
         }
     }
-
     // Return
     return to_ret;
 }

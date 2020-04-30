@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   28/04/2020, 19:20:07
+ *   30/04/2020, 16:33:32
  * Auto updated?
  *   Yes
  *
@@ -21,47 +21,31 @@
 
 /***** ACTIVATION FUNCTIONS *****/
 
-matrix* sigmoid(matrix* z) {
-    // Compute exp(-z)
-    matrix_exp_inplace(matrix_mul_c_inplace(z, -1));
-    // Compute 1 / (1 + exp(-z))
-    matrix_inv_inplace(matrix_add_c_inplace(z, 1));
-
-    return z;
+double sigmoid(double z) {
+    return 1 / (1 + exp(-z));
 }
 
-matrix* hyperbolic_tangent(matrix* z) {
-    // Compute tanh(z) + 1
-    matrix_add_c_inplace(matrix_tanh_inplace(z), 1);
-    // Compute (tanh(z) + 1) / 2
-    matrix_mul_c_inplace(z, 0.5);
-
-    return z;
+double hyperbolic_tangent(double z) {
+    return (tanh(z) + 1) / 2;
 }
 
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
-matrix* dydx_sigmoid(const matrix* z) {
+double dydx_sigmoid(double z) {
     // Compute sigmoid z
-    matrix* sz = sigmoid(copy_matrix_new(z));
-    // Compute sigmoid(z) * (1 - sigmoid(z))
-    matrix* sz2 = copy_matrix_new(sz);
-    matrix* result = matrix_mul_inplace(sz, matrix_sub2_c_inplace(1, sz2));
+    double sz = sigmoid(z);
     
-    // Clean the extra matrix
-    destroy_matrix(sz2);
-    
-    return result;
+    // Return sigmoid(z) * (1 - sigmoid(z))
+    return sz * (1 - sz);
 }
 
-matrix* dydx_hyperbolic_tangent(const matrix* z) {
-    // Compute tanh(z)^2
-    matrix* tanh_z2 = matrix_square_inplace(matrix_tanh(z));
-    // Compute (1 - tanh(z)^2) / 2
-    matrix_mul_c_inplace(matrix_sub2_c_inplace(1, tanh_z2), 0.5);
+double dydx_hyperbolic_tangent(double z) {
+    // Compute tanh(z)
+    double tanh_z = tanh(z);
 
-    return tanh_z2;
+    // Return (1 - tanh(z)^2) / 2
+    return (1 - (tanh_z * tanh_z)) / 2;
 }
 

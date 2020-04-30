@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 21:29:20
+ *   30/04/2020, 21:50:03
  * Auto updated?
  *   Yes
  *
@@ -26,10 +26,21 @@
 #define WEIGHTS_MAX 3.0
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
-#define ITERATION_STOP_MARGIN 0.000001
+
 
 
 /***** HELPER FUNCTIONS *****/
+
+/* Returns the maximum size_t in a list of size_ts. */
+size_t max(size_t size, const size_t data[size]) {
+    size_t m = 0;
+    for (size_t i = 0; i < size; i++) {
+        if (data[i] > m) {
+            m = data[i];
+        }
+    }
+    return m;
+}
 
 /* Creates and initialises a bias matrix for the number of given nodes. */
 array* initialize_biases(size_t n_nodes) {
@@ -75,6 +86,10 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
         return NULL;
     }
 
+    // Fill in the size values
+    to_ret->n_layers = n_hidden_layers + 2;
+    to_ret->n_weights = to_ret->n_layers - 1;
+
     // Allocate the required lists for the neural network
     to_ret->nodes_per_layer = malloc(sizeof(size_t) * to_ret->n_layers);
     to_ret->biases = malloc(sizeof(array*) * to_ret->n_weights);
@@ -92,10 +107,6 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
                 sizeof(matrix*) * to_ret->n_weights);
         return NULL;
     }
-
-    // Fill in the size values
-    to_ret->n_layers = n_hidden_layers + 2;
-    to_ret->n_weights = to_ret->n_layers - 1;
 
     // Store the number of nodes per layer
     for (size_t i = 0; i < n_hidden_layers; i++) {
@@ -116,7 +127,7 @@ neural_net* create_nn(size_t input_nodes, size_t n_hidden_layers, size_t hidden_
         to_ret->weights[i] = initialize_weights(to_ret->nodes_per_layer[i], to_ret->nodes_per_layer[i + 1]);
         if (to_ret->weights[i] == NULL) {
             fprintf(stderr, "ERROR: create_nn: could not initialize weight (%lu/%lu).\n",
-                    i + 1, to_ret->n_weights)
+                    i + 1, to_ret->n_weights);
             return NULL;
         }
     }
@@ -140,230 +151,250 @@ void destroy_nn(neural_net* nn) {
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-void nn_activate_all(neural_net* nn, array* outputs, const matrix* inputs, matrix* (*act)(matrix*)) {
-    // Copy the input matrix to be sure we do not deallocate it
-    outputs[0] = copy_create_array(inputs);
+void nn_activate(neural_net* nn, array* outputs[nn->n_layers], const array* inputs, double (*act)(double)) {
+    // Copy the inputs to the outputs array
+    copy_array(outputs[0], inputs);
 
     // Iterate over each layer to feedforward through the network
     for (size_t l = 1; l < nn->n_layers; l++) {
-        create_array[i]
-
+        // Get some references to the bias list, weight matrix and outputs of the previous and this layer
+        array* bias = nn->biases[l - 1];
+        matrix* weight = nn->weights[l - 1];
+        array* prev_output = outputs[l - 1];
+        array* output = outputs[l];
+        
         // Compute the activation for each node on this layer
         for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-            
+            // Sum the weighted inputs for this node
+            double z = bias->d[n];
+            for (size_t in = 0; in < nn->nodes_per_layer[l - 1]; in++) {
+                z += prev_output->d[in] * INDEX(weight, in, n);
+            }
+
+            // Run the activation function over this input and store it in the output
+            output->d[n] = act(z);
         }
-
-        // Then, compute the input values for the nodes in this layer
-        matrix* z = matrix_matmul(outputs, nn->weights[i]);
-
-        // Add the bias if we're in a hidden layer
-        matrix_add_inplace(z, nn->biases[i]);
-
-        // Apply the activation function
-        act(z);
-
-        // Set z as the new one
-        outputs[i] = z;
     }
-    // Add the output from the final layer in the outputs
-    outputs[nn->n_layers - 1] = inputs2;
+
+    // Done forward pass.
 }
 
-matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*)) {
-    // Prepare the output matrix
-    matrix* to_ret = create_empty_matrix(inputs->rows, nn->nodes_per_layer[nn->n_layers - 1]);
-
-    // Prepare a hacky matrix to reference one row only
-    matrix* input = malloc(sizeof(matrix));
-    input->rows = 1;
-    input->cols = inputs->cols;
-
-    // Prepare the buffer for all the intermediate outputs
-    matrix* outputs[nn->n_layers];
+void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], const array* inputs[n_samples], double (*act)(double)) {
+    // Prepare a fully allocated list of arrays for the intermediate outputs for each sample
+    array* layer_outputs[nn->n_layers];
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
+    }
 
     // Loop through all samples
-    for (size_t y = 0; y < inputs->rows; y++) {
-        // Use the hacky matrix to select only the current row
-        input->data = inputs->data + y * inputs->cols;
-
+    for (size_t i = 0; i < n_samples; i++) {
         // Let the activation run through the matrix
-        nn_activate_all(nn, outputs, input, act);
+        nn_activate(nn, layer_outputs, inputs[i], act);
 
-        // Copy the last output to the relevant row in the output matrix
-        for (size_t x = 0; x < outputs[nn->n_layers - 1]->cols; x++) {
-            to_ret->data[y * to_ret->cols + x] = outputs[nn->n_layers - 1]->data[x];
-        }
-
-        // Destroy all outputs
-        for (size_t i = 0; i < nn->n_layers; i++) {
-            destroy_matrix(outputs[i]);
-        }
+        // Copy the elements of the last outputs to the general outputs
+        copy_array(outputs[i], layer_outputs[nn->n_layers - 1]);
     }
 
-    // Free the hacky matrix
-    free(input);
-
-    // Return the last output
-    return to_ret;
+    // Destroy the intermediate output arrays
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        destroy_array(layer_outputs[l]);
+    }
 }
 
-void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*)) {
-    // Compute the deltas at the output layer first
-    matrix* error = matrix_sub(expected, outputs[nn->n_layers - 1]);
-    matrix* deltas = matrix_mul_inplace(dydx_act(outputs[nn->n_layers - 1]), error);
-    destroy_matrix(error);
+// Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
+void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
+    // Backpropagate the error from the last layer to the first. Note that the deltas are computed on non-updated matrices.
+    for (size_t l = nn->n_layers - 1; l > 0; l--) {
+        // Set shortcuts to some values used both in delta computing and weight / bias updating
+        size_t this_nodes = nn->nodes_per_layer[l];
+        matrix* weight = nn->weights[l - 1];
+        array* output = outputs[l];
 
-    // For all other layers, update the weights and the biases. Only compute a new error for all hidden layers.
-    for (size_t i = nn->n_layers - 1; i > 0; i--) {
-        // Compute the d_weights and d_bias
-        matrix* d_bias = matrix_mul_c(deltas, learning_rate);
-        matrix* output_T = matrix_transpose(outputs[i - 1]);
-        matrix* d_weights = matrix_mul_c_inplace(matrix_matmul(output_T, deltas), learning_rate);
+        // Compute the deltas of the correct layer
+        if (l == nn->n_layers - 1) {
+            // Deltas for output layer
 
-        // Compute a new deltas
-        matrix* weight_T = matrix_transpose(nn->weights[i - 1]);
-        matrix* error = matrix_matmul(deltas, weight_T);
-        destroy_matrix(deltas);
-        deltas = matrix_mul_inplace(dydx_act(outputs[i - 1]), error);
+            // Loop through all nodes in this layer to compute their deltas
+            for (size_t i = 0; i < this_nodes; i++) {
+                deltas->d[i] = (expected->d[i] - output->d[i]) * dydx_act(output->d[i]);
+            }
+        } else {
+            // Deltas for any hidden layer
+            
+            // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
+            size_t next_nodes = nn->nodes_per_layer[l + 1];
+            for (size_t n = 0; n < this_nodes; n++) {
+                // Take the weighted sum of all connection of that node with this layer
+                double error = 0;
+                for (size_t next_n = 0; next_n < next_nodes; next_n++) {
+                    error += deltas->d[next_n] * INDEX(weight, n, next_n);
+                }
 
-        // Update the bias and the weights
-        matrix_add_inplace(nn->biases[i - 1], d_bias);
-        matrix_add_inplace(nn->weights[i - 1], d_weights);
+                // Multiply the error with the derivative of the activation function to find the result
+                deltas->d[n] = error * dydx_act(output->d[n]);
+            }
+        }
 
-        // Cleanup
-        destroy_matrix(d_bias);
-        destroy_matrix(output_T);
-        destroy_matrix(d_weights);
-        destroy_matrix(weight_T);
-        destroy_matrix(error);
+        // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
+        size_t prev_nodes = nn->nodes_per_layer[l - 1];
+        array* bias = nn->biases[l - 1];
+        array* prev_output = outputs[l - 1];
+
+        // Updated all biases and weights for this layer
+        for (size_t n = 0; n < this_nodes; n++) {
+            bias->d[n] += learning_rate * deltas->d[n];
+            for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                INDEX(weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n] * learning_rate;
+            }
+        }
     }
 
     // Destroy the deltas
-    destroy_matrix(deltas);
+    destroy_array(deltas);
 }
 
 
 
-matrix* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t max_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*)) {
-    // Allocate the list for the costs
-    matrix* costs = create_empty_matrix(1, max_iterations);
+array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+    // Allocate a list for the costs and initialize the scratchpad memory to the correct size
+    array* costs = create_empty_array(n_iterations);
+    array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
 
-    // Create some hacky matrix objects that will be used to quickly reference single rows
-    matrix* input = malloc(sizeof(matrix));
-    input->rows = 1;
-    input->cols = inputs->cols;
-    matrix* input_gold = malloc(sizeof(matrix));
-    input_gold->rows = 1;
-    input_gold->cols = expected->cols;
+    // Create a list that is used to store intermediate outputs
+    array* layer_outputs[nn->n_layers];
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
+    }
+    
+    // Shortcut for the number of nodes in the last layer
+    size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
 
-    // Perform the training
-    matrix* outputs[nn->n_layers];
-    for (size_t i = 0; i < max_iterations; i++) {
-        costs->data[i] = 0;
+    // Perform the training for n_iterations
+    for (size_t i = 0; i < n_iterations; i++) {
+        // Set the cost for this iteration to 0
+        costs->d[i] = 0;
 
-        for (size_t j = 0; j < inputs->rows; j++) {
-            // Assign the current row to the hacky matrices
-            input->data = inputs->data + j * inputs->cols;
-            input_gold->data = expected->data + j * expected->cols;
+        // Loop through all samples
+        for (size_t s = 0; s < n_samples; s++) {
+            // Perform a forward pass through the network to be able to say something about the performance
+            nn_activate(nn, layer_outputs, inputs[s], act);
+            array* output = layer_outputs[nn->n_layers - 1];
 
-            // First, perform a forward pass through the network
-            nn_activate_all(nn, outputs, input, act);
-
-            // Compute the cost (Mean Squared Error)
-            matrix* err = matrix_sub(outputs[nn->n_layers - 1], input_gold);
-            costs->data[i] += matrix_sum(matrix_square_inplace(err)) / err->cols;
+            // Compute the cost for this sample
+            double cost = 0;
+            for (size_t n = 0; n < last_nodes; n++)  {
+                double err = (output->d[i] - expected[s]->d[i]);
+                cost += err * err;
+            }
+            costs->d[i] = cost / last_nodes;
 
             // Perform a backpropagation
-            nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
-
-            // Cleanup the matrices that tracked the output of each layer and clean the help matrix
-            for (size_t i = 0; i < nn->n_layers; i++) {
-                destroy_matrix(outputs[i]);
-            }
-            destroy_matrix(err);
+            nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
         }
 
-        // Print the cost once every 100 iterations
+        // Compute the average costs over these samples
+        costs->d[i] /= n_samples;
+
+        // Report it once every hundred
         if (i % 100 == 0) {
-            printf("    (Iter %lu) Cost: %.2f\n", i, costs->data[i]);
-        }
-
-        // Stop if the change in cost is small enough
-        if (i > 0 && fabs(costs->data[i - 1] - costs->data[i]) < ITERATION_STOP_MARGIN) {
-            // Copy the costs to a smaller area
-            matrix* new_costs = create_empty_matrix(1, i + 1);
-            for (size_t j = 0; j <= i; j++) {
-                new_costs->data[j] = costs->data[j];
-            }
-            destroy_matrix(costs);
-            costs = new_costs;
-            break;
+            printf("    (Iter %lu) Average cost: %.4f\n", i, costs->d[i]);
         }
     }
 
-    // Clean the hacky matrix objects
-    free(input);
-    free(input_gold);
+    // Destroy the intermediate output arrays
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        destroy_array(layer_outputs[l]);
+    }
 
     // Return the costs list
     return costs;
 }
 
-void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*)) {
-    // Create some hacky matrix objects that will be used to quickly reference single rows
-    matrix* input = malloc(sizeof(matrix));
-    input->rows = 1;
-    input->cols = inputs->cols;
-    matrix* input_gold = malloc(sizeof(matrix));
-    input_gold->rows = 1;
-    input_gold->cols = expected->cols;
+void nn_train(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+    // Initialize the scratchpad memory to the correct size
+    array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
     
-    // Perform the training
-    matrix* outputs[nn->n_layers];
-    for (size_t i = 0; i < n_iterations; i++) {
-        for (size_t j = 0; j < inputs->rows; j++) {
-            // Assign the current row to the hacky matrices
-            input->data = inputs->data + j * inputs->cols;
-            input_gold->data = expected->data + j * expected->cols;
+    // Create a list that is used to store intermediate outputs
+    array* layer_outputs[nn->n_layers];
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
+    }
 
-            // First, perform a forward pass through the network
-            nn_activate_all(nn, outputs, input, act);
+    // Perform the training for n_iterations (always)
+    for (size_t i = 0; i < n_iterations; i++) {
+        // Loop through all samples
+        for (size_t s = 0; s < n_samples; s++) {
+            // Perform a forward pass through the network to be able to say something about the performance
+            nn_activate(nn, layer_outputs, inputs[s], act);
 
             // Perform a backpropagation
-            nn_backpropagate(nn, outputs, input_gold, learning_rate, dydx_act);
-
-            // Cleanup the matrices that tracked the output of each layer
-            for (size_t i = 0; i < nn->n_layers; i++) {
-                destroy_matrix(outputs[i]);
-            }
+            nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
         }
     }
 
-    // Clean the hacky matrix objects
-    free(input);
-    free(input_gold);
+    // Destroy the intermediate output arrays
+    for (size_t l = 0; l < nn->n_layers; l++) {
+        destroy_array(layer_outputs[l]);
+    }
 }
 
 
 
-/***** USEFUL TOOLS *****/
+/***** VALIDATION TOOLS *****/
 
-matrix* nn_flatten_results(matrix* outputs) {
-    for (size_t y = 0; y < outputs->rows; y++) {
-        double highest_index = 0;
-        double highest_value = -INFINITY;
-        for (size_t x = 0; x < outputs->cols; x++) {
-            double data = outputs->data[y * outputs->cols + x];
-            if (data > highest_value) {
-                highest_index = x;
-                highest_value = data;
+void flatten_output(size_t n_samples, array* outputs[n_samples]) {
+    for (size_t s = 0; s < n_samples; s++) {
+        array* output = outputs[s];
+        
+        // First pass: collect the highest value of this sample
+        double max_value = -INFINITY;
+        double max_index = 0;
+        for (size_t n = 0; n < output->size; n++) {
+            if (output->d[n] > max_value) {
+                max_value = output->d[n];
+                max_index = n;
             }
         }
-        for (size_t x = 0; x < outputs->cols; x++) {
-            outputs->data[y * outputs->cols + x] = x == highest_index ? 1 : 0;
+
+        // Second pass: set all to 0, save for the highest value, which will be set to 1
+        for (size_t n = 0; n < output->size; n++) {
+            output->d[n] = n == max_index ? 1.0 : 0.0;
         }
     }
+}
 
-    // Return the matrix for chaining
-    return outputs;
+void round_output(size_t n_samples, array* outputs[n_samples]) {
+    for (size_t s = 0; s < n_samples; s++) {
+        array* output = outputs[s];
+        
+        // Round each element
+        for (size_t n = 0; n < output->size; n++) {
+            output->d[n] = round(output->d[n]);
+        }
+    }
+}
+
+double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expected[n_samples]) {
+    int correct = 0;
+    for (size_t s = 0; s < n_samples; s++) {
+        array* output = outputs[s];
+        array* expect = expected[s];
+
+        // Check if the lists are equally sized
+        if (output->size != expect->size) {
+            fprintf(stderr, "ERROR: compute_accuracy: the sizes of the output (%lu) and expected (%lu) are not equal for sample %lu.\n",
+                    output->size, expect->size, s);
+            return -1;
+        }
+        
+        // Compare each element
+        bool equal = true;
+        for (size_t n = 0; n < output->size; n++) {
+            equal = equal && fabs(output->d[n] - expect->d[n]) < 0.0001;
+        }
+
+        // Update correct based on if they were equal
+        correct += equal ? 1.0 : 0.0;
+    }
+    return correct / n_samples;
 }

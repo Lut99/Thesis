@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:58 PM
  * Last edited:
- *   28/04/2020, 19:20:16
+ *   30/04/2020, 16:31:09
  * Auto updated?
  *   Yes
  *
@@ -21,20 +21,20 @@
 
 /***** ACTIVATION FUNCTIONS *****/
 
-/* Implements the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* sigmoid(matrix* z);
+/* Implements the sigmoid function. Note that this operation is performed in-place. */
+double sigmoid(double z);
 
-/* Implements a hyperbolic tangent activation function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* hyperbolic_tangent(matrix* z);
+/* Implements a hyperbolic tangent activation function. Note that this operation is performed in-place. */
+double hyperbolic_tangent(double z);
 
 
 
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
-/* Implements the derivative of the sigmoid function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* dydx_sigmoid(const matrix* z);
+/* Implements the derivative of the sigmoid function. Note that this operation is performed in-place. */
+double dydx_sigmoid(double z);
 
-/* Implements the derivative of a hyperbolic tangent activation function working on an entire matrix. Note that this operation is performed in-place. */
-matrix* dydx_hyperbolic_tangent(const matrix* z);
+/* Implements the derivative of a hyperbolic tangent activation function. Note that this operation is performed in-place. */
+double dydx_hyperbolic_tangent(double z);
 
 #endif

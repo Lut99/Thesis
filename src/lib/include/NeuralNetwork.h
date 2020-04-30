@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   28/04/2020, 19:53:07
+ *   30/04/2020, 21:49:15
  * Auto updated?
  *   Yes
  *
@@ -51,25 +51,32 @@ void destroy_nn(neural_net* nn);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-/* Activates the neural network using the given activation function (which should operate on vectors) and using given (single) sample. The results of each layer are returned in the given output list of newly allocated matrices. */
-void nn_activate_all(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* inputs, matrix* (*act)(matrix*));
+/* Computes a forward pass through the network for the inputs of a single sample using the given activation function. The outputs for each layer are returned in the given output list. */
+void nn_activate(neural_net* nn, array* outputs[nn->n_layers], const array* inputs, double (*activation_function)(double));
 
-/* Wraps nn_active_all in a manner that it allows multiple samples to be inputted at once and that it discards all intermediate outputs, except that of the last layer. */
-matrix* nn_activate(neural_net* nn, const matrix* inputs, matrix* (*act)(matrix*));
+/* Computes a forward pass through the network for n_samples using the given activation function. The outputs of the final layer for each sample is returned in the given output list. */
+void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], const array* inputs[n_samples], double (*activation_function)(double));
 
-/* Backpropagates through the network. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. While the cost function is fixed (Mean Square Error), the activation function is provided via a function pointer. */
-void nn_backpropagate(neural_net* nn, matrix* outputs[nn->n_layers], const matrix* expected, double learning_rate, matrix* (*dydx_act)(const matrix*));
+/* Backpropagates through the network to update the weights. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. While the cost function is fixed (Mean Square Error), the derivative of the activation function is provided via a function pointer. Finally, the scratchpad argument is a list of at least the maximum number of nodes on the layers of the neural network to use as re-usable temporary array that needn't be re-allocated all the time. */
+void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* scratchpad);
 
-/* Trains the network for at most max_iterations iterations. Note that this version also returns a newly allocated list of costs for each iteration so that plots can be made based on the given cost function. Additionally, stops executing once the cost changed less than a certain threshold (ITERATION_STOP_MARGIN in NeuralNetwork.c) compared to the previous iteration. */
-matrix* nn_train_costs(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t max_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
+/* Performs training for n_iterations and returns the costs. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
+array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t max_iterations, double (*act)(double), double (*dydx_act)(double));
 
-/* Trains the network for n_iterations iterations. This version does nothing with costs to avoid overhead, and therefore also has a constant number of training iterations. */
-void nn_train(neural_net* nn, const matrix* inputs, const matrix* expected, double learning_rate, size_t n_iterations, matrix* (*act)(matrix*), matrix* (*dydx_act)(const matrix*));
+/* Performs training for n_iterations. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
+void nn_train(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double));
 
 
-/***** USEFUL TOOLS *****/
 
-/* For all rows in the matrix, sets each value to zero except the largest value. For two equal values, the first one is chosen so that there is only one. The result is returned in the given matrix (inplace). */
-matrix* nn_flatten_results(matrix* outputs);
+/***** VALIDATION TOOLS *****/
+
+/* Flattens given list of outputs so that only the highest value of each output is set to 1, the rest to 0. */
+void flatten_output(size_t n_samples, array* outputs[n_samples]);
+
+/* Round the output to the nearest integer. */
+void round_output(size_t n_samples, array* outputs[n_samples]);
+
+/* Compares given output with given expected output. Returns an accuracy measure of how many samples were (almost) equal divided by the total amount of samples. */
+double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expected[n_samples]);
 
 #endif
