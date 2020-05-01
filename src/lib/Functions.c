@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:19:37 PM
  * Last edited:
- *   30/04/2020, 16:33:32
+ *   01/05/2020, 16:35:14
  * Auto updated?
  *   Yes
  *
@@ -34,11 +34,13 @@ double hyperbolic_tangent(double z) {
 /***** ACTIVATION FUNCTIONS DERIVATIVES *****/
 
 double dydx_sigmoid(double z) {
-    // Compute sigmoid z
-    double sz = sigmoid(z);
+    return z * (1 - z);
+
+    // // Compute sigmoid z
+    // double sz = sigmoid(z);
     
-    // Return sigmoid(z) * (1 - sigmoid(z))
-    return sz * (1 - sz);
+    // // Return sigmoid(z) * (1 - sigmoid(z))
+    // return sz * (1 - sz);
 }
 
 double dydx_hyperbolic_tangent(double z) {

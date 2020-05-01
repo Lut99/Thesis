@@ -4,7 +4,7 @@
  * Created:
  *   4/19/2020, 11:19:47 PM
  * Last edited:
- *   30/04/2020, 22:00:01
+ *   01/05/2020, 13:58:54
  * Auto updated?
  *   Yes
  *
@@ -104,6 +104,7 @@ bool test_training_simple() {
         destroy_array(outputs[i]);
     }
     destroy_array(avg_costs);
+    destroy_nn(nn);
 
     // Return the succes status
     return succes;

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   30/04/2020, 21:49:15
+ *   01/05/2020, 13:42:45
  * Auto updated?
  *   Yes
  *
@@ -55,16 +55,16 @@ void destroy_nn(neural_net* nn);
 void nn_activate(neural_net* nn, array* outputs[nn->n_layers], const array* inputs, double (*activation_function)(double));
 
 /* Computes a forward pass through the network for n_samples using the given activation function. The outputs of the final layer for each sample is returned in the given output list. */
-void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], const array* inputs[n_samples], double (*activation_function)(double));
+void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], array* inputs[n_samples], double (*activation_function)(double));
 
 /* Backpropagates through the network to update the weights. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. While the cost function is fixed (Mean Square Error), the derivative of the activation function is provided via a function pointer. Finally, the scratchpad argument is a list of at least the maximum number of nodes on the layers of the neural network to use as re-usable temporary array that needn't be re-allocated all the time. */
 void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* scratchpad);
 
 /* Performs training for n_iterations and returns the costs. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
-array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t max_iterations, double (*act)(double), double (*dydx_act)(double));
+array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t max_iterations, double (*act)(double), double (*dydx_act)(double));
 
 /* Performs training for n_iterations. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
-void nn_train(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double));
+void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double));
 
 
 

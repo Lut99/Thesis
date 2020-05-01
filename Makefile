@@ -28,8 +28,8 @@ dirs: $(BIN) $(OBJ) $(TST_BIN)
 $(OBJ)/%.o: $(LIB)/%.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< -lm
 
-$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o | dirs
-	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Matrix.o
+$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
+	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
 
 $(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a -lm

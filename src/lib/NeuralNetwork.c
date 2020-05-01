@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   30/04/2020, 21:50:03
+ *   01/05/2020, 17:17:26
  * Auto updated?
  *   Yes
  *
@@ -179,7 +179,7 @@ void nn_activate(neural_net* nn, array* outputs[nn->n_layers], const array* inpu
     // Done forward pass.
 }
 
-void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], const array* inputs[n_samples], double (*act)(double)) {
+void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], array* inputs[n_samples], double (*act)(double)) {
     // Prepare a fully allocated list of arrays for the intermediate outputs for each sample
     array* layer_outputs[nn->n_layers];
     for (size_t l = 0; l < nn->n_layers; l++) {
@@ -202,7 +202,7 @@ void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], con
 }
 
 // Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
-void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
+void nn_backpropagate_old(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
     // Backpropagate the error from the last layer to the first. Note that the deltas are computed on non-updated matrices.
     for (size_t l = nn->n_layers - 1; l > 0; l--) {
         // Set shortcuts to some values used both in delta computing and weight / bias updating
@@ -215,9 +215,12 @@ void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array*
             // Deltas for output layer
 
             // Loop through all nodes in this layer to compute their deltas
-            for (size_t i = 0; i < this_nodes; i++) {
-                deltas->d[i] = (expected->d[i] - output->d[i]) * dydx_act(output->d[i]);
+            for (size_t n = 0; n < this_nodes; n++) {
+                deltas->d[n] = (expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
             }
+
+            // printf("Output layer deltas: ");
+            // array_print(stdout, deltas);
         } else {
             // Deltas for any hidden layer
             
@@ -233,6 +236,9 @@ void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array*
                 // Multiply the error with the derivative of the activation function to find the result
                 deltas->d[n] = error * dydx_act(output->d[n]);
             }
+
+            // printf("Hidden layer deltas: ");
+            // array_print(stdout, deltas);
         }
 
         // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
@@ -247,15 +253,55 @@ void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array*
                 INDEX(weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n] * learning_rate;
             }
         }
+
+        // printf("Updated bias: ");
+        // array_print(stdout, bias);
+        // printf("Updated weights:\n");
+        // matrix_print(weight);
+        // printf("\n");
+    }
+}
+
+void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
+    // Compute the deltas at the output layer first
+    size_t this_nodes = nn->nodes_per_layer[nn->n_layers - 1];
+    array* output = outputs[nn->n_layers - 1];
+    for (size_t n = 0; n < this_nodes; n++) {
+        deltas->d[n] = (expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
     }
 
-    // Destroy the deltas
-    destroy_array(deltas);
+    // For all other layers, update the weights and the biases.
+    size_t max_nodes = max(nn->n_layers, nn->nodes_per_layer);
+    matrix* d_weights = create_empty_matrix(max_nodes, max_nodes);
+    array* d_bias = create_empty_array(max_nodes);
+    for (size_t l = nn->n_layers - 1; l > 0; l--) {
+        this_nodes = nn->nodes_per_layer[l];
+
+        // Compute d_weights and d_biases
+        for (size_t n = 0; n < this_nodes; n++) {
+            d_bias->d[n] = deltas->d[n] * learning_rate;
+            for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
+                INDEX(d_weights, prev_n, n) = outputs[l - 1]->d[prev_n] * deltas->d[n] * learning_rate;
+            }
+        }
+
+        // Compute the hidden delta
+        for (size_t prev_n = 0; prev_n < this_nodes; prev_n++) {
+            // Take the weighted sum of all connection of that node with this layer
+            double error = 0;
+            for (size_t n = 0; n < this_nodes; n++) {
+                error += deltas->d[n] * INDEX(nn->weights[l - 1], prev_n, n);
+            }
+
+            // Multiply the error with the derivative of the activation function to find the result
+            deltas->d[prev_n] = error * dydx_act(output->d[prev_n]);
+        }
+    }
 }
 
 
 
-array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
     // Allocate a list for the costs and initialize the scratchpad memory to the correct size
     array* costs = create_empty_array(n_iterations);
     array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
@@ -265,9 +311,6 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_sa
     for (size_t l = 0; l < nn->n_layers; l++) {
         layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
     }
-    
-    // Shortcut for the number of nodes in the last layer
-    size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
 
     // Perform the training for n_iterations
     for (size_t i = 0; i < n_iterations; i++) {
@@ -275,6 +318,7 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_sa
         costs->d[i] = 0;
 
         // Loop through all samples
+        size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
             nn_activate(nn, layer_outputs, inputs[s], act);
@@ -283,17 +327,17 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_sa
             // Compute the cost for this sample
             double cost = 0;
             for (size_t n = 0; n < last_nodes; n++)  {
-                double err = (output->d[i] - expected[s]->d[i]);
+                double err = (output->d[n] - expected[s]->d[n]);
                 cost += err * err;
             }
-            costs->d[i] = cost / last_nodes;
+            costs->d[i] += cost / last_nodes;
 
             // Perform a backpropagation
             nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
         }
 
         // Compute the average costs over these samples
-        costs->d[i] /= n_samples;
+        //costs->d[i] /= n_samples;
 
         // Report it once every hundred
         if (i % 100 == 0) {
@@ -305,12 +349,14 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, const array* inputs[n_sa
     for (size_t l = 0; l < nn->n_layers; l++) {
         destroy_array(layer_outputs[l]);
     }
+    // Destroy the scratchpad
+    destroy_array(scratchpad);
 
     // Return the costs list
     return costs;
 }
 
-void nn_train(neural_net* nn, size_t n_samples, const array* inputs[n_samples], const array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
     // Initialize the scratchpad memory to the correct size
     array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
     
@@ -336,6 +382,7 @@ void nn_train(neural_net* nn, size_t n_samples, const array* inputs[n_samples], 
     for (size_t l = 0; l < nn->n_layers; l++) {
         destroy_array(layer_outputs[l]);
     }
+    destroy_array(scratchpad);
 }
 
 
@@ -375,7 +422,7 @@ void round_output(size_t n_samples, array* outputs[n_samples]) {
 }
 
 double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expected[n_samples]) {
-    int correct = 0;
+    double correct = 0;
     for (size_t s = 0; s < n_samples; s++) {
         array* output = outputs[s];
         array* expect = expected[s];

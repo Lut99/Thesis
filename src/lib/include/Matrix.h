@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   30/04/2020, 15:57:20
+ *   01/05/2020, 13:47:28
  * Auto updated?
  *   Yes
  *
@@ -32,7 +32,7 @@ typedef struct MATRIX {
 
 
 /* Expands to an expression that indices the data in a multi-dimensional matrix. */
-#define INDEX(MATRIX, ROWS, COLS) (MATRIX->data[ROWS * MATRIX->cols + COLS])
+#define INDEX(MATRIX, ROWS, COLS) (MATRIX->data[(ROWS) * MATRIX->cols + (COLS)])
 
 
 

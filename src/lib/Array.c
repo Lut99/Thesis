@@ -4,7 +4,7 @@
  * Created:
  *   28/04/2020, 19:36:38
  * Last edited:
- *   30/04/2020, 21:13:11
+ *   01/05/2020, 14:43:06
  * Auto updated?
  *   Yes
  *
@@ -170,7 +170,7 @@ void array_write(FILE* handle, const array* a) {
     fprintf(handle, "[");
     for (size_t i = 0; i < a->size; i++) {
         if (i > 0) {
-            fprintf(handle, " ");
+            fprintf(handle, ", ");
         }
         fprintf(handle, "%.2f", a->d[i]);
     }
@@ -181,7 +181,7 @@ void array_print(FILE* handle, const array* a) {
     fprintf(handle, "[");
     for (size_t i = 0; i < a->size; i++) {
         if (i > 0) {
-            fprintf(handle, " ");
+            fprintf(handle, ", ");
         }
         fprintf(handle, "%.2f", a->d[i]);
     }

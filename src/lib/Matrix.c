@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   30/04/2020, 21:46:37
+ *   01/05/2020, 13:50:10
  * Auto updated?
  *   Yes
  *
@@ -189,7 +189,7 @@ matrix* copy_matrix_new(const matrix* m) {
     }
 
     // Copy the data
-    if (copy_matrix(to_ret, m) != NULL) {
+    if (copy_matrix(to_ret, m) == NULL) {
         fprintf(stderr, "ERROR: copy_matrix_new: data copying failed.\n");
         return NULL;
     }
@@ -219,11 +219,13 @@ matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t co
         return NULL;
     }
 
-    // Compute the pointer to the correct position in the data
-    double* data = m->data + (row_min * m->cols + col_min);
-    
-    // Create a new matrix which links to this data
-    matrix* to_ret = link_matrix(row_max - row_min, col_max - col_min, data);
+    // Create a new matrix and copy the correct subset
+    matrix* to_ret = create_empty_matrix(row_max - row_min, col_max - col_min);
+    for (size_t y = row_min; y < row_max; y++) {
+        for (size_t x = col_min; x < col_max; x++) {
+            INDEX(to_ret, y - row_min, x - col_min) = INDEX(m, y, x);
+        }
+    }
 
     // Return
     return to_ret;
@@ -242,10 +244,10 @@ void destroy_matrix(matrix* m) {
 
 matrix* matrix_transpose(const matrix* m1) {
     // Loop and put 'em there
-    matrix* to_ret = create_empty_matrix(m1->rows, m1->cols);
+    matrix* to_ret = create_empty_matrix(m1->cols, m1->rows);
     for (size_t y = 0; y < m1->rows; y++) {
         for (size_t x = 0; x < m1->cols; x++) {
-            to_ret->data[x * to_ret->cols + y] = m1->data[y * m1->cols + x];
+            INDEX(to_ret, x, y) = INDEX(m1, y, x);
         }
     }
     // Return
