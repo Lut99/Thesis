@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   01/05/2020, 16:48:03
+ *   02/05/2020, 16:47:33
  * Auto updated?
  *   Yes
  *
@@ -304,10 +304,6 @@ int main(int argc, char** argv) {
 
     // Flatten the results
     flatten_output(testing_size, outputs);
-
-    // for (size_t i = 0; i < testing_size; i++) {
-    //     array_print(stdout, outputs[i]);
-    // }
 
     // Compute the accuracy
     double accuracy = compute_accuracy(testing_size, outputs, classes_test);

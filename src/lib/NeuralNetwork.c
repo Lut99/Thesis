@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   01/05/2020, 17:17:26
+ *   02/05/2020, 16:45:17
  * Auto updated?
  *   Yes
  *
@@ -202,12 +202,11 @@ void nn_forward(neural_net* nn, size_t n_samples, array* outputs[n_samples], arr
 }
 
 // Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
-void nn_backpropagate_old(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
+void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
     // Backpropagate the error from the last layer to the first. Note that the deltas are computed on non-updated matrices.
     for (size_t l = nn->n_layers - 1; l > 0; l--) {
         // Set shortcuts to some values used both in delta computing and weight / bias updating
         size_t this_nodes = nn->nodes_per_layer[l];
-        matrix* weight = nn->weights[l - 1];
         array* output = outputs[l];
 
         // Compute the deltas of the correct layer
@@ -218,83 +217,36 @@ void nn_backpropagate_old(neural_net* nn, array* outputs[nn->n_layers], const ar
             for (size_t n = 0; n < this_nodes; n++) {
                 deltas->d[n] = (expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
             }
-
-            // printf("Output layer deltas: ");
-            // array_print(stdout, deltas);
         } else {
             // Deltas for any hidden layer
             
             // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
             size_t next_nodes = nn->nodes_per_layer[l + 1];
+            matrix* weight_next = nn->weights[l];
             for (size_t n = 0; n < this_nodes; n++) {
                 // Take the weighted sum of all connection of that node with this layer
                 double error = 0;
                 for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                    error += deltas->d[next_n] * INDEX(weight, n, next_n);
+                    error += deltas->d[next_n] * INDEX(weight_next, n, next_n);
                 }
 
                 // Multiply the error with the derivative of the activation function to find the result
                 deltas->d[n] = error * dydx_act(output->d[n]);
             }
-
-            // printf("Hidden layer deltas: ");
-            // array_print(stdout, deltas);
         }
 
         // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
         size_t prev_nodes = nn->nodes_per_layer[l - 1];
         array* bias = nn->biases[l - 1];
+        matrix* weight = nn->weights[l - 1];
         array* prev_output = outputs[l - 1];
 
         // Updated all biases and weights for this layer
         for (size_t n = 0; n < this_nodes; n++) {
-            bias->d[n] += learning_rate * deltas->d[n];
+            bias->d[n] +=  deltas->d[n] * learning_rate;
             for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
                 INDEX(weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n] * learning_rate;
             }
-        }
-
-        // printf("Updated bias: ");
-        // array_print(stdout, bias);
-        // printf("Updated weights:\n");
-        // matrix_print(weight);
-        // printf("\n");
-    }
-}
-
-void nn_backpropagate(neural_net* nn, array* outputs[nn->n_layers], const array* expected, double learning_rate, double (*dydx_act)(double), array* deltas) {
-    // Compute the deltas at the output layer first
-    size_t this_nodes = nn->nodes_per_layer[nn->n_layers - 1];
-    array* output = outputs[nn->n_layers - 1];
-    for (size_t n = 0; n < this_nodes; n++) {
-        deltas->d[n] = (expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
-    }
-
-    // For all other layers, update the weights and the biases.
-    size_t max_nodes = max(nn->n_layers, nn->nodes_per_layer);
-    matrix* d_weights = create_empty_matrix(max_nodes, max_nodes);
-    array* d_bias = create_empty_array(max_nodes);
-    for (size_t l = nn->n_layers - 1; l > 0; l--) {
-        this_nodes = nn->nodes_per_layer[l];
-
-        // Compute d_weights and d_biases
-        for (size_t n = 0; n < this_nodes; n++) {
-            d_bias->d[n] = deltas->d[n] * learning_rate;
-            for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-                INDEX(d_weights, prev_n, n) = outputs[l - 1]->d[prev_n] * deltas->d[n] * learning_rate;
-            }
-        }
-
-        // Compute the hidden delta
-        for (size_t prev_n = 0; prev_n < this_nodes; prev_n++) {
-            // Take the weighted sum of all connection of that node with this layer
-            double error = 0;
-            for (size_t n = 0; n < this_nodes; n++) {
-                error += deltas->d[n] * INDEX(nn->weights[l - 1], prev_n, n);
-            }
-
-            // Multiply the error with the derivative of the activation function to find the result
-            deltas->d[prev_n] = error * dydx_act(output->d[prev_n]);
         }
     }
 }
@@ -336,12 +288,9 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
             nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
         }
 
-        // Compute the average costs over these samples
-        //costs->d[i] /= n_samples;
-
         // Report it once every hundred
         if (i % 100 == 0) {
-            printf("    (Iter %lu) Average cost: %.4f\n", i, costs->d[i]);
+            printf("    (Iter %lu) Cost: %.4f\n", i, costs->d[i]);
         }
     }
 
