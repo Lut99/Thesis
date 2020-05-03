@@ -5,6 +5,10 @@ ifdef DEBUG
 GCC_ARGS+=-g
 endif
 
+ifdef PROFILE
+GCC_ARGS+=-pg
+endif
+
 SRC=src
 LIB=$(SRC)/lib
 BIN=bin

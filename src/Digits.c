@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   02/05/2020, 16:47:33
+ *   03/05/2020, 14:00:46
  * Auto updated?
  *   Yes
  *
@@ -25,6 +25,8 @@
 #include "Functions.h"
 #include "NeuralNetwork.h"
 
+/* If left uncommented, reports and writes the costs. */
+// #define PLOT 1
 /* Percentage of data that will be used for training, the rest is for testing. */
 #define TRAIN_RATIO 0.8
 /* Number of iterations that the neural network will be trained on. */
@@ -287,11 +289,16 @@ int main(int argc, char** argv) {
     neural_net* nn = create_nn(64, 1, hidden_layer_nodes, n_classes);
 
     // Train the neural network for ITERATIONS iterations
+    #ifdef PLOT
     printf("  Training...\n");
     array* costs = nn_train_costs(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
     printf("  Writing costs...\n\n");
     // Write the costs for plotting
     write_costs(costs);
+    #else
+    printf("  Training...\n");
+    nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
+    #endif
 
     printf("Validating network...\n");
 
@@ -314,7 +321,9 @@ int main(int argc, char** argv) {
     destroy_array_list(sample, digits);
     destroy_array_list(sample, classes);
     destroy_array_list(testing_size - 1, outputs);
+    #ifdef PLOT
     destroy_array(costs);
+    #endif
     destroy_nn(nn);
     fclose(data);
 
