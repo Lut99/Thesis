@@ -4,6 +4,7 @@
         "neuralnetwork.h": "c",
         "cmath": "c",
         "stdio.h": "c",
-        "limits": "c"
+        "limits": "c",
+        "cstdlib": "c"
     }
 }

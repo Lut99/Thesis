@@ -1,5 +1,6 @@
 GCC=gcc
 GCC_ARGS=-std=c11 -O2 -Wall -Wextra
+EXT_LIBS=-lm
 
 ifdef DEBUG
 GCC_ARGS+=-g
@@ -7,6 +8,10 @@ endif
 
 ifdef PROFILE
 GCC_ARGS+=-pg
+endif
+
+ifdef THREADED
+GCC_ARGS+=-DTHREADED -fopenmp
 endif
 
 SRC=src
@@ -30,13 +35,13 @@ $(TST_BIN):
 dirs: $(BIN) $(OBJ) $(TST_BIN)
 
 $(OBJ)/%.o: $(LIB)/%.c | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< -lm
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
 $(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
 	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
 
 $(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a -lm
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a $(EXT_LIBS)
 
 digits: $(BIN)/digits.out
 

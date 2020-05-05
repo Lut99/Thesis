@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   02/05/2020, 16:45:17
+ *   05/05/2020, 19:34:57
  * Auto updated?
  *   Yes
  *
@@ -162,13 +162,13 @@ void nn_activate(neural_net* nn, array* outputs[nn->n_layers], const array* inpu
         matrix* weight = nn->weights[l - 1];
         array* prev_output = outputs[l - 1];
         array* output = outputs[l];
-        
+
         // Compute the activation for each node on this layer
         for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
             // Sum the weighted inputs for this node
             double z = bias->d[n];
-            for (size_t in = 0; in < nn->nodes_per_layer[l - 1]; in++) {
-                z += prev_output->d[in] * INDEX(weight, in, n);
+            for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
+                z += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
             }
 
             // Run the activation function over this input and store it in the output
@@ -259,9 +259,11 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
     array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
 
     // Create a list that is used to store intermediate outputs
-    array* layer_outputs[nn->n_layers];
-    for (size_t l = 0; l < nn->n_layers; l++) {
-        layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
+    array* layer_outputs[n_samples][nn->n_layers];
+    for (size_t s = 0; s < n_samples; s++) {
+        for (size_t l = 0; l < nn->n_layers; l++) {
+            layer_outputs[s][l] = create_empty_array(nn->nodes_per_layer[l]);
+        }
     }
 
     // Perform the training for n_iterations
@@ -273,8 +275,8 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
         size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
-            nn_activate(nn, layer_outputs, inputs[s], act);
-            array* output = layer_outputs[nn->n_layers - 1];
+            nn_activate(nn, layer_outputs[s], inputs[s], act);
+            array* output = layer_outputs[s][nn->n_layers - 1];
 
             // Compute the cost for this sample
             double cost = 0;
@@ -283,20 +285,25 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
                 cost += err * err;
             }
             costs->d[i] += cost / last_nodes;
-
-            // Perform a backpropagation
-            nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
         }
 
         // Report it once every hundred
         if (i % 100 == 0) {
             printf("    (Iter %lu) Cost: %.4f\n", i, costs->d[i]);
         }
+
+        // Loop through all samples to compute the backward cost
+        for (size_t s = 0; s < n_samples; s++) {
+            // Perform a backpropagation
+            nn_backpropagate(nn, layer_outputs[s], expected[s], learning_rate, dydx_act, scratchpad);
+        }
     }
 
     // Destroy the intermediate output arrays
-    for (size_t l = 0; l < nn->n_layers; l++) {
-        destroy_array(layer_outputs[l]);
+    for (size_t s = 0; s < nn->n_layers; s++) {
+        for (size_t l = 0; l < nn->n_layers; l++) {
+            destroy_array(layer_outputs[s][l]);
+        }
     }
     // Destroy the scratchpad
     destroy_array(scratchpad);
@@ -310,26 +317,37 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
     array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
     
     // Create a list that is used to store intermediate outputs
-    array* layer_outputs[nn->n_layers];
-    for (size_t l = 0; l < nn->n_layers; l++) {
-        layer_outputs[l] = create_empty_array(nn->nodes_per_layer[l]);
+    array* layer_outputs[n_samples][nn->n_layers];
+    for (size_t s = 0; s < n_samples; s++) {
+        for (size_t l = 0; l < nn->n_layers; l++) {
+            layer_outputs[s][l] = create_empty_array(nn->nodes_per_layer[l]);
+        }
     }
 
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
-        // Loop through all samples
+        // Loop through all samples to compute the forward cost
+        #ifdef THREADED
+        #pragma omp parallel for
+        #endif
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
-            nn_activate(nn, layer_outputs, inputs[s], act);
+            nn_activate(nn, layer_outputs[s], inputs[s], act);
+        }
 
+        // Loop through all samples to compute the backward cost
+        for (size_t s = 0; s < n_samples; s++) {
             // Perform a backpropagation
-            nn_backpropagate(nn, layer_outputs, expected[s], learning_rate, dydx_act, scratchpad);
+            nn_backpropagate(nn, layer_outputs[s], expected[s], learning_rate, dydx_act, scratchpad);
         }
     }
 
-    // Destroy the intermediate output arrays
-    for (size_t l = 0; l < nn->n_layers; l++) {
-        destroy_array(layer_outputs[l]);
+    // Cleanup
+    // Destroy the intermediate outputs
+    for (size_t s = 0; s < nn->n_layers; s++) {
+        for (size_t l = 0; l < nn->n_layers; l++) {
+            destroy_array(layer_outputs[s][l]);
+        }
     }
     destroy_array(scratchpad);
 }

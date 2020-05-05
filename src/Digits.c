@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   03/05/2020, 14:00:46
+ *   05/05/2020, 14:24:21
  * Auto updated?
  *   Yes
  *
@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include <time.h>
 
 #include "Functions.h"
 #include "NeuralNetwork.h"
@@ -33,7 +34,6 @@
 #define TRAIN_ITERATIONS 15000
 /* Learning rate of the Neural Network. */
 #define TRAIN_ETA 0.005
-
 
 static unsigned int row = 1;
 static unsigned int col = 1;
@@ -297,7 +297,12 @@ int main(int argc, char** argv) {
     write_costs(costs);
     #else
     printf("  Training...\n");
+    time_t start_ms = time(NULL);
+    clock_t start = clock();
     nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
+    clock_t end = clock();
+    time_t end_ms = time(NULL);
+    printf("  Done (time taken: %ld seconds / CPU time taken: %f seconds)\n", end_ms - start_ms, (end - start) / (double) CLOCKS_PER_SEC);
     #endif
 
     printf("Validating network...\n");
