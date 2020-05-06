@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   06/05/2020, 21:04:40
+ *   06/05/2020, 22:36:34
  * Auto updated?
  *   Yes
  *
@@ -314,12 +314,13 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
 
 void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
     // Initialize the scratchpad memory to the correct size
-    array* scratchpad = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
+    array* deltas = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
     
-    // Create a list that is used to store intermediate outputs
+    // Create a list that is used to store intermediate outputs. Note that we create no create_empty_array
+    //   for the first element, as this is simply a reference to the input.
     array* layer_outputs[n_samples][nn->n_layers];
     for (size_t s = 0; s < n_samples; s++) {
-        for (size_t l = 0; l < nn->n_layers; l++) {
+        for (size_t l = 1; l < nn->n_layers; l++) {
             layer_outputs[s][l] = create_empty_array(nn->nodes_per_layer[l]);
         }
     }
@@ -329,24 +330,94 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // Loop through all samples to compute the forward cost
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
-            nn_activate(nn, layer_outputs[s], inputs[s], act);
+            array** sample_outputs = layer_outputs[s];
+            
+            // Copy the inputs to the outputs array
+            sample_outputs[0] = inputs[s];
+
+            // Iterate over each layer to feedforward through the network
+            for (size_t l = 1; l < nn->n_layers; l++) {
+                // Get some references to the bias list, weight matrix and outputs of the previous and this layer
+                array* bias = nn->biases[l - 1];
+                matrix* weight = nn->weights[l - 1];
+                array* prev_output = sample_outputs[l - 1];
+                array* output = sample_outputs[l];
+
+                // Compute the activation for each node on this layer
+                for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
+                    // Sum the weighted inputs for this node
+                    double z = bias->d[n];
+                    for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
+                        z += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
+                    }
+
+                    // Run the activation function over this input and store it in the output
+                    output->d[n] = act(z);
+                }
+            }
         }
 
         // Loop through all samples to compute the backward cost
         for (size_t s = 0; s < n_samples; s++) {
-            // Perform a backpropagation
-            nn_backpropagate(nn, layer_outputs[s], expected[s], learning_rate, dydx_act, scratchpad);
+            // Backpropagate the error from the last layer to the first.
+            array** sample_outputs = layer_outputs[s];
+            array* sample_expected = expected[s];
+            for (size_t l = nn->n_layers - 1; l > 0; l--) {
+                // Set shortcuts to some values used both in delta computing and weight / bias updating
+                size_t this_nodes = nn->nodes_per_layer[l];
+                array* output = sample_outputs[l];
+
+                // Compute the deltas of the correct layer
+                if (l == nn->n_layers - 1) {
+                    // Deltas for output layer
+
+                    // Loop through all nodes in this layer to compute their deltas
+                    for (size_t n = 0; n < this_nodes; n++) {
+                        deltas->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
+                    }
+                } else {
+                    // Deltas for any hidden layer
+                    
+                    // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
+                    size_t next_nodes = nn->nodes_per_layer[l + 1];
+                    matrix* weight_next = nn->weights[l];
+                    for (size_t n = 0; n < this_nodes; n++) {
+                        // Take the weighted sum of all connection of that node with this layer
+                        double error = 0;
+                        for (size_t next_n = 0; next_n < next_nodes; next_n++) {
+                            error += deltas->d[next_n] * INDEX(weight_next, n, next_n);
+                        }
+
+                        // Multiply the error with the derivative of the activation function to find the result
+                        deltas->d[n] = error * dydx_act(output->d[n]);
+                    }
+                }
+
+                // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
+                size_t prev_nodes = nn->nodes_per_layer[l - 1];
+                array* bias = nn->biases[l - 1];
+                matrix* weight = nn->weights[l - 1];
+                array* prev_output = sample_outputs[l - 1];
+
+                // Updated all biases and weights for this layer
+                for (size_t n = 0; n < this_nodes; n++) {
+                    bias->d[n] +=  deltas->d[n] * learning_rate;
+                    for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                        INDEX(weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n] * learning_rate;
+                    }
+                }
+            }
         }
     }
 
     // Cleanup
-    // Destroy the intermediate outputs
-    for (size_t s = 0; s < nn->n_layers; s++) {
-        for (size_t l = 0; l < nn->n_layers; l++) {
+    // Destroy the intermediate outputs - but not the first one, as this is simply copied by pointer from the input list
+    for (size_t s = 0; s < n_samples; s++) {
+        for (size_t l = 1; l < nn->n_layers; l++) {
             destroy_array(layer_outputs[s][l]);
         }
     }
-    destroy_array(scratchpad);
+    destroy_array(deltas);
 }
 
 
