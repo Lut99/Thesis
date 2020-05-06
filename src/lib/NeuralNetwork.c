@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   05/05/2020, 19:34:57
+ *   06/05/2020, 21:04:40
  * Auto updated?
  *   Yes
  *
@@ -327,9 +327,6 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
         // Loop through all samples to compute the forward cost
-        #ifdef THREADED
-        #pragma omp parallel for
-        #endif
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
             nn_activate(nn, layer_outputs[s], inputs[s], act);
