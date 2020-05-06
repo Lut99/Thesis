@@ -10,10 +10,6 @@ ifdef PROFILE
 GCC_ARGS+=-pg
 endif
 
-ifdef THREADED
-GCC_ARGS+=-DTHREADED -fopenmp
-endif
-
 SRC=src
 LIB=$(SRC)/lib
 BIN=bin
@@ -22,6 +18,13 @@ TST=tests
 TST_BIN=$(BIN)/tests
 
 INCLUDES=-I $(LIB)/include
+
+NN_VERSION=$(OBJ)/NeuralNetwork.o
+
+ifdef OPENMP
+GCC_ARGS+=-fopenmp
+NN_VERSION=$(OBJ)/NeuralNetwork_OpenMP_$(OPENMP).o
+endif
 
 .PHONY: default dirs plot
 default: all
@@ -36,9 +39,11 @@ dirs: $(BIN) $(OBJ) $(TST_BIN)
 
 $(OBJ)/%.o: $(LIB)/%.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+$(OBJ)/NeuralNetwork_%.o: $(LIB)/Optimisation/NeuralNetwork_%.c | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
-$(OBJ)/NeuralNetwork.a: $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
-	ar cr $@ $(OBJ)/NeuralNetwork.o $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
+$(OBJ)/NeuralNetwork.a: $(NN_VERSION) $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
+	ar cr $@ $(NN_VERSION) $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
 
 $(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a $(EXT_LIBS)
@@ -46,13 +51,13 @@ $(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
 digits: $(BIN)/digits.out
 
 test_matrix: $(TST)/test_matrix.c $(OBJ)/Matrix.o
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o -lm
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o $(EXT_LIBS)
 
 test_nn: $(TST)/test_nn.c $(OBJ)/NeuralNetwork.a
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/NeuralNetwork.a -lm
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/NeuralNetwork.a $(EXT_LIBS)
 
 test_array: $(TST)/test_array.c $(OBJ)/Array.o
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Array.o -lm
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Array.o $(EXT_LIBS)
 
 tests: test_matrix test_nn test_array
 	$(info )
