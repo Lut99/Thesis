@@ -26,7 +26,7 @@ GCC_ARGS+=-fopenmp
 NN_VERSION=$(OBJ)/NeuralNetwork_OpenMP_$(OPENMP).o
 endif
 
-.PHONY: default dirs plot
+.PHONY: default dirs digits tests plot all
 default: all
 
 $(BIN):
@@ -48,7 +48,12 @@ $(OBJ)/NeuralNetwork.a: $(NN_VERSION) $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/M
 $(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a $(EXT_LIBS)
 
+$(TST_BIN)/playground.out: $(TST)/playground.c | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
+
 digits: $(BIN)/digits.out
+
+playground: $(TST_BIN)/playground.out
 
 test_matrix: $(TST)/test_matrix.c $(OBJ)/Matrix.o
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $(TST_BIN)/$@.out $< $(OBJ)/Matrix.o $(EXT_LIBS)
@@ -70,7 +75,7 @@ tests: test_matrix test_nn test_array
 plot:
 	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""
 
-all: digits tests plot
+all: digits tests plot playground
 
 clean:
 	rm -f $(BIN)/*.out

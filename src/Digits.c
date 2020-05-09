@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   06/05/2020, 22:36:45
+ *   09/05/2020, 14:03:49
  * Auto updated?
  *   Yes
  *
@@ -31,9 +31,9 @@
 /* Percentage of data that will be used for training, the rest is for testing. */
 #define TRAIN_RATIO 0.8
 /* Number of iterations that the neural network will be trained on. */
-#define TRAIN_ITERATIONS 15000
+#define TRAIN_ITERATIONS 30000
 /* Learning rate of the Neural Network. */
-#define TRAIN_ETA 0.005
+#define TRAIN_ETA 0.001
 
 static unsigned int row = 1;
 static unsigned int col = 1;

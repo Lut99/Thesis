@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   06/05/2020, 23:16:25
+ *   07/05/2020, 21:59:56
  * Auto updated?
  *   Yes
  *
@@ -340,7 +340,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             sample_outputs[0] = inputs[s];
 
             // Iterate over each layer to feedforward through the network
-            #pragma omp parallel for
+            #pragma omp parallel for schedule(dynamic)
             for (size_t l = 1; l < nn->n_layers; l++) {
                 // Get some references to the bias list, weight matrix and outputs of the previous and this layer
                 array* bias = nn->biases[l - 1];
@@ -367,7 +367,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             // Backpropagate the error from the last layer to the first.
             array** sample_outputs = layer_outputs[s];
             array* sample_expected = expected[s];
-            #pragma omp parallel for
+            #pragma omp parallel for schedule(dynamic)
             for (size_t l = nn->n_layers - 1; l > 0; l--) {
                 // Set shortcuts to some values used both in delta computing and weight / bias updating
                 size_t this_nodes = nn->nodes_per_layer[l];

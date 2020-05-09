@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   06/05/2020, 23:33:43
+ *   07/05/2020, 22:59:12
  * Auto updated?
  *   Yes
  *
@@ -14,8 +14,9 @@
  *   implementation. Any special functions used (such as activation or loss
  *   functions) are defined in Functions.c.
  * 
- *   This file implements an optimised version of the training using OpenMP,
- *   where only inner loops are optimised. These are not collapsed.
+ *   This file implements an optimised version that has the layer and samples
+ *   loops swapped. This way, this implementation can be thought of as a
+ *   pipelined OpenMP version.
 **/
 
 #include <stdlib.h>
@@ -330,24 +331,18 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
-        // Loop through all samples to compute the forward cost
-        for (size_t s = 0; s < n_samples; s++) {
-            // Perform a forward pass through the network to be able to say something about the performance
-            array** sample_outputs = layer_outputs[s];
-            
-            // Copy the inputs to the outputs array
-            sample_outputs[0] = inputs[s];
-
-            // Iterate over each layer to feedforward through the network
-            for (size_t l = 1; l < nn->n_layers; l++) {
+        // Pipeline through the layers
+        #pragma omp parallel for schedule(static) collapse(2)
+        for (size_t l = 1; l < nn->n_layers; l++) {
+            // Compute the activation for each sample on this layer
+            for (size_t s = 0; s < n_samples; s++) {
                 // Get some references to the bias list, weight matrix and outputs of the previous and this layer
                 array* bias = nn->biases[l - 1];
                 matrix* weight = nn->weights[l - 1];
-                array* prev_output = sample_outputs[l - 1];
-                array* output = sample_outputs[l];
+                array* prev_output = layer_outputs[s][l - 1];
+                array* output = layer_outputs[s][l];
 
                 // Compute the activation for each node on this layer
-                #pragma omp parallel for
                 for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
                     // Sum the weighted inputs for this node
                     double z = bias->d[n];
@@ -360,6 +355,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
         }
+
+        // Pipeline through the backward layers
 
         // Loop through all samples to compute the backward cost
         for (size_t s = 0; s < n_samples; s++) {
@@ -376,7 +373,6 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     // Deltas for output layer
 
                     // Loop through all nodes in this layer to compute their deltas
-                    #pragma omp parallel for
                     for (size_t n = 0; n < this_nodes; n++) {
                         deltas->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
                     }
@@ -386,7 +382,6 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                     size_t next_nodes = nn->nodes_per_layer[l + 1];
                     matrix* weight_next = nn->weights[l];
-                    #pragma omp parallel for
                     for (size_t n = 0; n < this_nodes; n++) {
                         // Take the weighted sum of all connection of that node with this layer
                         double error = 0;
@@ -406,7 +401,6 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 array* prev_output = sample_outputs[l - 1];
 
                 // Updated all biases and weights for this layer
-                #pragma omp parallel for
                 for (size_t n = 0; n < this_nodes; n++) {
                     bias->d[n] +=  deltas->d[n] * learning_rate;
                     for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {

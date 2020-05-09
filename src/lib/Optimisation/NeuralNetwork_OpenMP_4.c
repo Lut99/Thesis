@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   06/05/2020, 23:31:38
+ *   07/05/2020, 22:53:37
  * Auto updated?
  *   Yes
  *
@@ -14,9 +14,9 @@
  *   implementation. Any special functions used (such as activation or loss
  *   functions) are defined in Functions.c.
  * 
- *   This file implements an optimised version of the training using OpenMP,
- *   where only collapsable inner loops are optimised. Note that some smaller
- *   loops are created that are executed single-threaded to make this possible.
+ *   This file implements an optimised version using OpenMP. This particular
+ *   version aims to optimise the inner loops per layer, collapsing them if
+ *   possible. This time, it chooses the inner loops of the two
 **/
 
 #include <stdlib.h>
@@ -347,23 +347,17 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 array* prev_output = sample_outputs[l - 1];
                 array* output = sample_outputs[l];
 
-                // Set the bias as initial value for each node
-                for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-                    output->d[n] = bias->d[n];
-                }
-
                 // Compute the activation for each node on this layer
-                #pragma omp parallel for collapse(2)
                 for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
                     // Sum the weighted inputs for this node
+                    double z = 0;
+                    #pragma omp parallel for schedule(static) reduction(+: z)
                     for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-                        output->d[n] += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
+                        z += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
                     }
-                }
 
-                // Apply the activation function to the weighted sum + bias
-                for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-                    output->d[n] = act(output->d[n]);
+                    // Run the activation function over this input and store it in the output
+                    output->d[n] = act(z + bias->d[n]);
                 }
             }
         }
@@ -383,7 +377,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     // Deltas for output layer
 
                     // Loop through all nodes in this layer to compute their deltas
-                    #pragma omp parallel for
+                    #pragma omp parallel for schedule(static)
                     for (size_t n = 0; n < this_nodes; n++) {
                         deltas->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
                     }
@@ -393,23 +387,16 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                     size_t next_nodes = nn->nodes_per_layer[l + 1];
                     matrix* weight_next = nn->weights[l];
-
-                    // Initialize all deltas to 0
-                    for (size_t n = 0; n < this_nodes; n++) {
-                        deltas->d[n] = 0;
-                    }
-
-                    #pragma omp parallel for collapse(2)
                     for (size_t n = 0; n < this_nodes; n++) {
                         // Take the weighted sum of all connection of that node with this layer
+                        double error = 0;
+                        #pragma omp parallel for schedule(static) reduction(+: error)
                         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                            deltas->d[n] += deltas->d[next_n] * INDEX(weight_next, n, next_n);
+                            error += deltas->d[next_n] * INDEX(weight_next, n, next_n);
                         }
-                    }
 
-                    // Multiple the compute error with the derivative of the activation function
-                    for (size_t n = 0; n < this_nodes; n++) {
-                        deltas->d[n] *= dydx_act(output->d[n]);
+                        // Multiply the error with the derivative of the activation function to find the result
+                        deltas->d[n] = error * dydx_act(output->d[n]);
                     }
                 }
 
@@ -419,13 +406,13 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 matrix* weight = nn->weights[l - 1];
                 array* prev_output = sample_outputs[l - 1];
 
-                // Update all biases
+                // Update all biases for this layer
                 for (size_t n = 0; n < this_nodes; n++) {
-                    bias->d[n] += deltas->d[n] * learning_rate;
+                    bias->d[n] +=  deltas->d[n] * learning_rate;
                 }
 
                 // Updated all weights for this layer
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for schedule(static) collapse(2)
                 for (size_t n = 0; n < this_nodes; n++) {
                     for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
                         INDEX(weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n] * learning_rate;
