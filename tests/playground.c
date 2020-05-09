@@ -4,7 +4,7 @@
  * Created:
  *   07/05/2020, 22:11:32
  * Last edited:
- *   07/05/2020, 22:42:40
+ *   09/05/2020, 17:37:40
  * Auto updated?
  *   Yes
  *
@@ -14,28 +14,42 @@
 
 #include <stdio.h>
 #include <stddef.h>
+#include <sys/time.h>
+
+
+extern int omp_get_thread_num();
 
 
 int main() {
-    double zs[100];
-    #pragma omp parallel for reduction(+:zs[:100]) collapse(2)
-    for (size_t i = 0; i < 100; i++) {
-        for (size_t j = 0; j < 100; j++) {
-            printf("(NESTED - i = %lu) Thread id: %d\n", i, __builtin_omp_get_thread_num());
-            zs[i]++;
+    struct timeval start, stop;
+
+    gettimeofday(&start, NULL);
+
+    // #pragma omp parallel
+    {
+        #pragma omp parallel
+        {
+        int num = omp_get_thread_num();
+
+        printf("(Thread %d) Hello there!\n", num);
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < 64; i++) {
+            int num = omp_get_thread_num();
+            printf("(Thread %d) General Kenobi!\n", num);
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < 64; i++) {
+            int num = omp_get_thread_num();
+            printf("(Thread %d) You are a bold one!\n", num);
         }
     }
 
-    for (size_t i = 0; i < 100; i++) {
-        zs[i] = (zs[i] + i) / 2;
-    }
+    gettimeofday(&stop, NULL);
 
-    printf("All z's : [");
-    for (size_t i = 0; i < 100; i++) {
-        if (i > 0) {
-            printf(", ");
-        }
-        printf("%f", zs[i]);
-    }
-    printf("]\n");
+    unsigned long time_taken = ((stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec)) / 1000;
+
+    printf("Time taken: %lu ms\n", time_taken);
 }

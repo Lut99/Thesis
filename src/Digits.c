@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   09/05/2020, 14:03:49
+ *   09/05/2020, 21:37:50
  * Auto updated?
  *   Yes
  *
@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "Functions.h"
 #include "NeuralNetwork.h"
@@ -31,9 +32,9 @@
 /* Percentage of data that will be used for training, the rest is for testing. */
 #define TRAIN_RATIO 0.8
 /* Number of iterations that the neural network will be trained on. */
-#define TRAIN_ITERATIONS 30000
+#define TRAIN_ITERATIONS 20000
 /* Learning rate of the Neural Network. */
-#define TRAIN_ETA 0.001
+#define TRAIN_ETA 0.005
 
 static unsigned int row = 1;
 static unsigned int col = 1;
@@ -289,20 +290,31 @@ int main(int argc, char** argv) {
     neural_net* nn = create_nn(64, 1, hidden_layer_nodes, n_classes);
 
     // Train the neural network for ITERATIONS iterations
+    struct timeval start_ms, end_ms;
+    clock_t start, end;
     #ifdef PLOT
     printf("  Training...\n");
+    gettimeofday(&start_ms, NULL);
+    start = clock();
     array* costs = nn_train_costs(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
+    end = clock();
+    gettimeofday(&end_ms, NULL);
+    printf("  Time taken: %f seconds / CPU time taken: %f seconds\n",
+           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
+           (end - start) / (double) CLOCKS_PER_SEC);
     printf("  Writing costs...\n\n");
     // Write the costs for plotting
     write_costs(costs);
     #else
     printf("  Training...\n");
-    time_t start_ms = time(NULL);
-    clock_t start = clock();
+    gettimeofday(&start_ms, NULL);
+    start = clock();
     nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
-    clock_t end = clock();
-    time_t end_ms = time(NULL);
-    printf("  Done (time taken: %ld seconds / CPU time taken: %f seconds)\n", end_ms - start_ms, (end - start) / (double) CLOCKS_PER_SEC);
+    end = clock();
+    gettimeofday(&end_ms, NULL);
+    printf("  Time taken: %f seconds / CPU time taken: %f seconds\n\n",
+           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
+           (end - start) / (double) CLOCKS_PER_SEC);
     #endif
 
     printf("Validating network...\n");
@@ -319,7 +331,7 @@ int main(int argc, char** argv) {
 
     // Compute the accuracy
     double accuracy = compute_accuracy(testing_size, outputs, classes_test);
-    printf("Network accuracy: %f\n\n", accuracy);
+    printf("  Network accuracy: %f\n\n", accuracy);
     
     // Cleanup
     printf("Cleaning up...\n");

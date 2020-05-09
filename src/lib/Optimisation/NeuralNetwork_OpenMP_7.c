@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   09/05/2020, 23:55:57
+ *   09/05/2020, 23:56:36
  * Auto updated?
  *   Yes
  *
@@ -16,8 +16,8 @@
  * 
  *   This particular version implements an OpenMP-accelerated version that
  *   makes use of multi-threading. It optimises the iterations over the
- *   samples, but only for the activation function. Additionally, by forgoing
- *   some shortcuts, this version is collapsing the sample and the layer loops.
+ *   samples, but only for the forward pass. Additionally, speeds up smaller
+ *   loops with OpenMP SIMD.
 **/
 
 #include <stdlib.h>
@@ -451,27 +451,28 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
-        // Set the inputs for the first layer
-        #pragma omp parallel for schedule(static)
-        for (size_t s = 0; s < n_samples; s++) {
-            layer_outputs[s][0] = inputs[s];
-        }
- 
         // Loop through all samples to compute the forward cost
         #pragma omp parallel for schedule(static)
         for (size_t s = 0; s < n_samples; s++) {
+            // Perform a forward pass through the network to be able to say something about the performance
+            array** sample_outputs = layer_outputs[s];
+            
+            // Copy the inputs to the outputs array
+            sample_outputs[0] = inputs[s];
+
             // Iterate over each layer to feedforward through the network
             for (size_t l = 1; l < nn->n_layers; l++) {
                 // Get some references to the bias list, weight matrix and outputs of the previous and this layer
                 array* bias = nn->biases[l - 1];
                 matrix* weight = nn->weights[l - 1];
-                array* prev_output = layer_outputs[s][l - 1];
-                array* output = layer_outputs[s][l];
+                array* prev_output = sample_outputs[l - 1];
+                array* output = sample_outputs[l];
 
                 // Compute the activation for each node on this layer
                 for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
                     // Sum the weighted inputs for this node
                     double z = bias->d[n];
+                    #pragma omp simd
                     for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
                         z += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
                     }
@@ -487,6 +488,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         for (size_t l = 1; l < nn->n_layers; l++) {
             for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
                 delta_biases[l - 1]->d[n] = 0;
+                #pragma omp simd
                 for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
                     INDEX(delta_weights[l - 1], prev_n, n) = 0;
                 }
@@ -508,6 +510,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     // Deltas for output layer
 
                     // Loop through all nodes in this layer to compute their deltas
+                    #pragma omp simd
                     for (size_t n = 0; n < this_nodes; n++) {
                         deltas->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
                     }
@@ -520,6 +523,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     for (size_t n = 0; n < this_nodes; n++) {
                         // Take the weighted sum of all connection of that node with this layer
                         double error = 0;
+                        #pragma omp simd
                         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
                             error += deltas->d[next_n] * INDEX(weight_next, n, next_n);
                         }
@@ -538,19 +542,20 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 // Updated all biases and weights for this layer
                 for (size_t n = 0; n < this_nodes; n++) {
                     delta_bias->d[n] += deltas->d[n];
+                    #pragma omp simd
                     for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-                        double to_add = prev_output->d[prev_n] * deltas->d[n];
-                        INDEX(delta_weight, prev_n, n) += to_add;
+                        INDEX(delta_weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n];
                     }
                 }
             }
         }
 
         // Actually update the weights, and reset the delta updates to 0 for next iteration
-        #pragma omp parallel for schedule(dynamic)
+        #pragma omp for schedule(dynamic)
         for (size_t l = 1; l < nn->n_layers; l++) {
             for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
                 nn->biases[l - 1]->d[n] += delta_biases[l - 1]->d[n] * learning_rate;
+                #pragma omp simd
                 for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
                     INDEX(nn->weights[l - 1], prev_n, n) += INDEX(delta_weights[l - 1], prev_n, n) * learning_rate;
                 }
