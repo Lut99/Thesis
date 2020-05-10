@@ -7,7 +7,7 @@ echo "Benchmarking sequential..."
 bin/digits.out ./digits.csv | grep "Time taken:\|Network accuracy:"
 
 # Loop through all OpenMP variations
-for VARIANT in 1 2 3 4 5 6 7 8 9 10
+for VARIANT in 1 2 3 4 5 6 7 8
 do
     echo ""
     echo "Compiling OpenMP variation ${VARIANT}..."
