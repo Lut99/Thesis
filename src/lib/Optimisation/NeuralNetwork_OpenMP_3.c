@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   09/05/2020, 22:43:41
+ *   11/05/2020, 23:17:46
  * Auto updated?
  *   Yes
  *
@@ -494,19 +494,6 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
 
-            // Reset all weights
-            #pragma omp for schedule(dynamic) collapse(2)
-            for (size_t s = 0; s < n_samples; s++) {
-                for (size_t l = 1; l < nn->n_layers; l++) {
-                    for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-                        delta_biases[s][l - 1]->d[n] = 0;
-                        for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-                            INDEX(delta_weights[s][l - 1], prev_n, n) = 0;
-                        }
-                    }
-                }
-            }
-
             // Loop through all samples to compute the backward cost
             #pragma omp for schedule(static)
             for (size_t s = 0; s < n_samples; s++) {
@@ -554,9 +541,9 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
                     // Updated all biases and weights for this layer
                     for (size_t n = 0; n < this_nodes; n++) {
-                        delta_bias->d[n] += deltas[TID]->d[n];
+                        delta_bias->d[n] = deltas[TID]->d[n];
                         for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-                            INDEX(delta_weight, prev_n, n) += prev_output->d[prev_n] * deltas[TID]->d[n];
+                            INDEX(delta_weight, prev_n, n) = prev_output->d[prev_n] * deltas[TID]->d[n];
                         }
                     }
                 }
