@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   11/05/2020, 23:43:11
+ *   12/05/2020, 11:21:49
  * Auto updated?
  *   Yes
  *
@@ -32,13 +32,6 @@
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
 
-
-
-/***** OPENMP DEFINITIONS *****/
-
-extern int omp_set_num_threads();
-extern int omp_get_num_procs();
-extern int omp_get_thread_num();
 
 
 /***** HELPER FUNCTIONS *****/
@@ -429,9 +422,6 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
 }
 
 void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
-    // Set the number of threads
-    omp_set_num_threads(omp_get_num_procs());
-
     // Create a list of deltas, one for each thread
     array* deltas[n_samples];
     for (size_t i = 0; i < n_samples; i++) {
@@ -467,7 +457,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
         for (size_t l = 1; l < nn->n_layers; l++) {
             // Iterate over all available samples (1797 x 20 first iteration of l, 1797 x 10 second iteration of l)
-            // #pragma omp parallel for schedule(static) collapse(2)
+            #pragma omp parallel for schedule(static) collapse(2)
             for (size_t s = 0; s < n_samples; s++) {
                 // Compute the activation for each node on this layer
                 for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
@@ -483,49 +473,25 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             }
         }
 
-        // // Reset the delta biases and delta weights (2 iterations)
-        // for (size_t l = 1; l < nn->n_layers; l++) {
-        //     // 20 for first iteration of l, 10 for second iteration of l
-        //     #pragma omp parallel for schedule(static) collapse(2)
-        //     for (size_t s = 0; s < n_samples; s++) {
-        //         for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-        //             delta_biases[s][l - 1]->d[n] = 0;
-        //             // 64 for first iteration of l, 20 for second iteration of l
-        //             for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-        //                 INDEX(delta_weights[s][l - 1], prev_n, n) = 0;
-        //             }
-        //         }
-        //     }
-        // }
-
         // First, compute the error at the output layer
         size_t prev_nodes = nn->nodes_per_layer[nn->n_layers - 2];
         size_t this_nodes = nn->nodes_per_layer[nn->n_layers - 1];
         
         // Compute the deltas for all samples (1797 x 10 iterations)
-        // #pragma omp parallel for schedule(dynamic) collapse(2)
+        #pragma omp parallel for schedule(dynamic) collapse(2)
         for (size_t s = 0; s < n_samples; s++) {
-            // Loop through all nodes in this layer to compute their individual deltas for this sample
             for (size_t n = 0; n < this_nodes; n++) {
                 array** sample_outputs = layer_outputs[s];
                 double output_val = sample_outputs[nn->n_layers - 1]->d[n];
                 deltas[s]->d[n] = (expected[s]->d[n] - output_val) * dydx_act(output_val);
 
+                // Compute the change in biases and weights (20 iterations)
                 delta_biases[s][nn->n_layers - 2]->d[n] = deltas[s]->d[n];
                 for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
                     INDEX(delta_weights[s][nn->n_layers - 2], prev_n, n) = layer_outputs[s][nn->n_layers - 2]->d[prev_n] * deltas[s]->d[n];
                 }
             }
         }
-        // #pragma omp single
-        // for (size_t s = 0; s < n_samples; s++) {
-        //     for (size_t n = 0; n < this_nodes; n++) {
-        //         delta_biases[nn->n_layers - 2]->d[n] += deltas[s]->d[n];
-        //         for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-        //             INDEX(delta_weights[nn->n_layers - 2], prev_n, n) += layer_outputs[s][nn->n_layers - 2]->d[prev_n] * deltas[s]->d[n];
-        //         }
-        //     }
-        // }
         
         // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
         for (size_t l = nn->n_layers - 2; l > 0; l--) {
@@ -534,7 +500,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             size_t next_nodes = nn->nodes_per_layer[l + 1];
 
             // Loop through all the samples available on this layer (1797 x 20 iterations)
-            // #pragma omp parallel for schedule(dynamic) collapse(2)
+            #pragma omp parallel for schedule(dynamic) collapse(2)
             for (size_t s = 0; s < n_samples; s++) {
                 // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                 for (size_t n = 0; n < this_nodes; n++) {
@@ -550,77 +516,13 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                     deltas[s]->d[n] = error * dydx_act(sample_outputs[l]->d[n]);
 
                     // Update the delta biases and weights (64 iterations)
-                    // #pragma omp critical
-                    {
-                        delta_biases[s][l - 1]->d[n] = deltas[s]->d[n];
-                        for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-                            INDEX(delta_weights[s][l - 1], prev_n, n) = sample_outputs[l - 1]->d[prev_n] * deltas[s]->d[n];
-                        }
+                    delta_biases[s][l - 1]->d[n] = deltas[s]->d[n];
+                    for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                        INDEX(delta_weights[s][l - 1], prev_n, n) = sample_outputs[l - 1]->d[prev_n] * deltas[s]->d[n];
                     }
                 }
             }
         }
-
-        // // Loop through all samples to compute the backward cost
-        // for (size_t s = 0; s < n_samples; s++) {
-        //     // Backpropagate the error from the last layer to the first.
-        //     array** sample_outputs = layer_outputs[s];
-        //     array* sample_expected = expected[s];
-
-        //     // First, compute the outer layer
-        //     {
-        //         array* output = sample_outputs[nn->n_layers - 1];
-        //         for (size_t n = 0; n < nn->nodes_per_layer[nn->n_layers - 1]; n++) {
-        //             // Compute the deltas
-        //             deltas[s]->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
-        //         }
-
-        //         for (size_t n = 0; n < nn->nodes_per_layer[nn->n_layers - 1]; n++) {
-        //             // Update the weights
-        //             delta_biases[nn->n_layers - 2]->d[n] += deltas[s]->d[n];
-        //             for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[nn->n_layers - 2]; prev_n++) {
-        //                 INDEX(delta_weights[nn->n_layers - 2], prev_n, n) += sample_outputs[nn->n_layers - 2]->d[prev_n] * deltas[s]->d[n];
-        //             }
-        //         }
-        //     }
-        // }
-
-        // for (size_t s = 0; s < n_samples; s++) {
-        //     // Then, do the other layers
-        //     for (size_t l = nn->n_layers - 2; l > 0; l--) {
-        //         // Set shortcuts to some values used both in delta computing and weight / bias updating
-        //         size_t this_nodes = nn->nodes_per_layer[l];
-        //         array* output = layer_outputs[s][l];
-
-        //         // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
-        //         size_t next_nodes = nn->nodes_per_layer[l + 1];
-        //         matrix* weight_next = nn->weights[l];
-        //         for (size_t n = 0; n < this_nodes; n++) {
-        //             // Take the weighted sum of all connection of that node with this layer
-        //             double error = 0;
-        //             for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-        //                 error += deltas[s]->d[next_n] * INDEX(weight_next, n, next_n);
-        //             }
-
-        //             // Multiply the error with the derivative of the activation function to find the result
-        //             deltas[s]->d[n] = error * dydx_act(output->d[n]);
-        //         }
-
-        //         // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
-        //         size_t prev_nodes = nn->nodes_per_layer[l - 1];
-        //         array* delta_bias = delta_biases[l - 1];
-        //         matrix* delta_weight = delta_weights[l - 1];
-        //         array* prev_output = layer_outputs[s][l - 1];
-
-        //         // Updated all biases and weights for this layer
-        //         for (size_t n = 0; n < this_nodes; n++) {
-        //             delta_bias->d[n] +=  deltas[s]->d[n];
-        //             for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-        //                 INDEX(delta_weight, prev_n, n) += prev_output->d[prev_n] * deltas[s]->d[n];
-        //             }
-        //         }
-        //     }
-        // }
 
         // Actually update the weights, and reset the delta updates to 0 for next iteration (2 iterations)
         #pragma omp parallel for schedule(static) collapse(2)
@@ -653,7 +555,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         }
     }
     // Destroy the temporary deltas
-    for (int i = 0; i < omp_get_num_procs(); i++) {
+    for (size_t i = 0; i < n_samples; i++) {
         destroy_array(deltas[i]);
     }
 }
