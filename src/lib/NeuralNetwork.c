@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   07/05/2020, 23:37:23
+ *   12/05/2020, 15:41:42
  * Auto updated?
  *   Yes
  *
@@ -447,6 +447,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
+        /***** FORWARD PASS *****/
+
         // Loop through all samples to compute the forward cost
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
@@ -476,6 +478,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
         }
+
+        /***** BACKWARD PASS *****/
 
         // Loop through all samples to compute the backward cost
         for (size_t s = 0; s < n_samples; s++) {

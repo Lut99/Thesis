@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 11:50:31
+ *   12/05/2020, 15:41:22
  * Auto updated?
  *   Yes
  *
@@ -450,6 +450,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
+        /***** FORWARD PASS *****/
+
         // Loop through all samples to compute the forward cost (1797 iterations)
         #pragma omp parallel for schedule(static)
         for (size_t s = 0; s < n_samples; s++) {
@@ -492,6 +494,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
         }
+
+        /***** BACKWARD PASS *****/
 
         // Loop through all samples to compute the backward cost (1797 iterations)
         for (size_t s = 0; s < n_samples; s++) {
@@ -549,7 +553,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         }
 
         // Actually update the weights, and reset the delta updates to 0 for next iteration (2 iterations)
-        #pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for schedule(static)
         for (size_t l = 1; l < nn->n_layers; l++) {
             // 20 first iteration of l, 10 second iteration of l
             for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {

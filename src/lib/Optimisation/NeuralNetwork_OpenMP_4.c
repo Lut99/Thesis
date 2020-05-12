@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 11:49:03
+ *   12/05/2020, 15:40:05
  * Auto updated?
  *   Yes
  *
@@ -14,10 +14,9 @@
  *   implementation. Any special functions used (such as activation or loss
  *   functions) are defined in Functions.c.
  * 
- *   This particular version implements an OpenMP-accelerated version that
- *   makes use of multi-threading. It optimises the inner loops that go over
- *   the layer, but not with threads (as this takes unreasonably long), but
- *   with SIMD.
+ *   This particular version implements an OpenMP-accelerated version. It
+ *   optimises the inner loops that go over the layer, but not with threads
+ *   (as this takes unreasonably long), but with SIMD.
 **/
 
 #include <stdlib.h>
@@ -444,6 +443,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
+        /***** FORWARD PASS *****/
+
         // Loop through all samples to compute the forward cost (1797 iterations)
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
@@ -487,6 +488,8 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
         }
+
+        /***** BACKWARD PASS *****/
 
         // Loop through all samples to compute the backward cost (1797 iterations)
         for (size_t s = 0; s < n_samples; s++) {
