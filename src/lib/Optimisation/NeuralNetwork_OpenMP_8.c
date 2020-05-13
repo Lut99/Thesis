@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 15:36:20
+ *   13/05/2020, 13:45:49
  * Auto updated?
  *   Yes
  *
@@ -492,7 +492,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // First, compute the error at the output layer
         size_t prev_nodes = nn->nodes_per_layer[nn->n_layers - 2];
         size_t this_nodes = nn->nodes_per_layer[nn->n_layers - 1];
-        
+
         // Compute the deltas for all samples (1797 x 10 iterations)
         #pragma omp parallel for schedule(static) collapse(2)
         for (size_t s = 0; s < n_samples; s++) {
@@ -513,7 +513,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                 }
             }
         }
-        
+
         // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
         for (size_t l = nn->n_layers - 2; l > 0; l--) {
             prev_nodes = nn->nodes_per_layer[l - 1];
@@ -589,7 +589,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 void flatten_output(size_t n_samples, array* outputs[n_samples]) {
     for (size_t s = 0; s < n_samples; s++) {
         array* output = outputs[s];
-        
+
         // First pass: collect the highest value of this sample
         double max_value = -INFINITY;
         double max_index = 0;
@@ -610,7 +610,7 @@ void flatten_output(size_t n_samples, array* outputs[n_samples]) {
 void round_output(size_t n_samples, array* outputs[n_samples]) {
     for (size_t s = 0; s < n_samples; s++) {
         array* output = outputs[s];
-        
+
         // Round each element
         for (size_t n = 0; n < output->size; n++) {
             output->d[n] = round(output->d[n]);
@@ -630,7 +630,7 @@ double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expe
                     output->size, expect->size, s);
             return -1;
         }
-        
+
         // Compare each element
         bool equal = true;
         for (size_t n = 0; n < output->size; n++) {

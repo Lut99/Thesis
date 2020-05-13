@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 15:40:38
+ *   13/05/2020, 16:47:36
  * Auto updated?
  *   Yes
  *
@@ -467,7 +467,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             for (size_t s = 0; s < n_samples; s++) {
                 // Perform a forward pass through the network to be able to say something about the performance
                 array** sample_outputs = layer_outputs[s];
-                
+
                 // Copy the inputs to the outputs array
                 sample_outputs[0] = inputs[s];
 
@@ -518,7 +518,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
                         }
                     } else {
                         // Deltas for any hidden layer
-                        
+
                         // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                         //   (20 iterations, occurs only for one l)
                         size_t next_nodes = nn->nodes_per_layer[l + 1];

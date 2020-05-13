@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 23:52:09
+ *   13/05/2020, 13:45:01
  * Auto updated?
  *   Yes
  *
@@ -272,7 +272,7 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
 
     // Initialize the scratchpad memory to the correct size
     array* deltas = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
-    
+
     // Create a list that is used to store intermediate outputs. Note that we create no create_empty_array
     //   for the first element, as this is simply a reference to the input.
     array* layer_outputs[n_samples][nn->n_layers];
@@ -308,7 +308,7 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
 
             // Perform a forward pass through the network to be able to say something about the performance
             array** sample_outputs = layer_outputs[s];
-            
+
             // Copy the inputs to the outputs array
             sample_outputs[0] = inputs[s];
 
@@ -367,7 +367,7 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
                     }
                 } else {
                     // Deltas for any hidden layer
-                    
+
                     // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                     size_t next_nodes = nn->nodes_per_layer[l + 1];
                     matrix* weight_next = nn->weights[l];
