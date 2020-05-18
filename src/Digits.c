@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   09/05/2020, 21:37:50
+ *   5/18/2020, 9:37:58 PM
  * Auto updated?
  *   Yes
  *
@@ -38,6 +38,12 @@
 
 static unsigned int row = 1;
 static unsigned int col = 1;
+
+
+
+/***** OPENMP DECLARATIONS *****/
+extern void omp_set_num_threads(int);
+
 
 
 /***** TOOLS *****/
@@ -160,11 +166,29 @@ void write_costs(array* costs) {
 
 int main(int argc, char** argv) {
     // Check argument validity
-    if (argc != 2) {
-        printf("Usage: %s <path_to_digits_datafile>\n", argv[0]);
+    if (argc != 2 && argc != 3) {
+        printf("Usage: %s <path_to_digits_datafile> [<num_threads>]\n", argv[0]);
     }
 
+    // Parse the threads if given
+    #ifdef _OPENMP
+    int threads = 16;
+    if (argc == 3) {
+        // Set the number of threads
+        threads = atoi(argv[2]);
+    }
+    omp_set_num_threads(threads);
+    #endif
+
     printf("\n*** NEURAL NETWORK training DIGITS ***\n\n");
+
+    #ifdef _OPENMP
+    printf("Number of threads: %u\n\n", threads);
+    #else
+    if (argc == 3) {
+        printf("WARNING: thread argument makes no sense for sequential implementation, ignoring...\n\n");
+    }
+    #endif
 
     printf("Loading digit dataset \"%s\"...\n", argv[1]);
     
