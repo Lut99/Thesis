@@ -1,10 +1,10 @@
-/* NEURAL NETWORK.c
+/* NEURAL NETWORK OMP CPU1.c
  *   by Lut99
  *
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   12/05/2020, 15:41:22
+ *   5/23/2020, 12:37:29 AM
  * Auto updated?
  *   Yes
  *

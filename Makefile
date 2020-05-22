@@ -21,9 +21,12 @@ INCLUDES=-I $(LIB)/include
 
 NN_VERSION=$(OBJ)/NeuralNetwork.o
 
-ifdef OPENMP
+ifdef VARIATION
+ifneq ($(VARIATION), Sequential)
 GCC_ARGS+=-fopenmp
-NN_VERSION=$(OBJ)/NeuralNetwork_OpenMP_$(OPENMP).o
+endif
+else
+VARIATION=Sequential
 endif
 
 .PHONY: default dirs digits tests plot all
@@ -39,19 +42,22 @@ dirs: $(BIN) $(OBJ) $(TST_BIN)
 
 $(OBJ)/%.o: $(LIB)/%.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
-$(OBJ)/NeuralNetwork_%.o: $(LIB)/Optimisation/NeuralNetwork_%.c | dirs
+
+$(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.c | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+$(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
-$(OBJ)/NeuralNetwork.a: $(NN_VERSION) $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
-	ar cr $@ $(NN_VERSION) $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
+$(OBJ)/Support.a: $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
+	ar cr $@ $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
 
-$(BIN)/digits.out: $(SRC)/Digits.c $(OBJ)/NeuralNetwork.a | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/NeuralNetwork.a $(EXT_LIBS)
+$(BIN)/digits_%.out: $(OBJ)/NeuralNetwork_%.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/Digits.o $(OBJ)/Support.a $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
 
-digits: $(BIN)/digits.out
+digits: $(BIN)/digits_sequential.out
 
 playground: $(TST_BIN)/playground.out
 

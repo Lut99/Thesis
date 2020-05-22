@@ -6,5 +6,8 @@
         "stdio.h": "c",
         "limits": "c",
         "cstdlib": "c"
-    }
+    },
+    "python.linting.pylintEnabled": false,
+    "python.linting.pylamaEnabled": true,
+    "python.linting.enabled": true
 }
