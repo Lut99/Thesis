@@ -109,7 +109,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print(f" - Iterations per test   : {iterations}")
     print(f" - DAS5-mode             : {das_reservation is not None}")
     if das_reservation is not None:
-        print(f"    - DAS5 reservation    : {das_reservation}")
+        print(f"    - DAS5 reservation   : {das_reservation}")
     print("")
 
     print("Cleaning existing binaries...", end="")
