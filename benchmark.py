@@ -74,6 +74,8 @@ def compile(var_ID):
 def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
     avg_runtime = 0
     for i in range(iterations):
+        if len(params) > 0:
+            print("   ", end="")
         print(f"         Iter ({i + 1}/{iterations})...", end="")
         sys.stdout.flush()
 
@@ -92,7 +94,8 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
         print(f",{runtime},{cputime}", file=outputfile)
 
         avg_runtime += runtime
-
+    if len(params) > 0:
+        print("   ", end="")
     print(f"       > Average: {avg_runtime / iterations} seconds")
 
 
