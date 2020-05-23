@@ -159,7 +159,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
             # Compile first
             print("      Compiling...", end="")
             sys.stdout.flush()
-            compile(var_ID)
+            compile(seq)
             print(" Done")
 
             # Run for the different parameters
@@ -177,7 +177,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
             # Compile first
             print("      Compiling...", end="")
             sys.stdout.flush()
-            compile(var_ID)
+            compile(cpu)
             print(" Done")
 
             # Run for the different parameters
