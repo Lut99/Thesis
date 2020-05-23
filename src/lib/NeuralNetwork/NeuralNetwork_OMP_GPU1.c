@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/23/2020, 12:38:12 AM
+ *   5/23/2020, 9:19:18 PM
  * Auto updated?
  *   Yes
  *
@@ -30,6 +30,11 @@
 #define WEIGHTS_MAX 3.0
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
+
+
+/***** OPTIONAL PARAMETERS *****/
+static unsigned int n_teams = 50;
+static unsigned int n_threads = 16;
 
 
 
@@ -456,7 +461,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
         for (size_t l = 1; l < nn->n_layers; l++) {
             // Iterate over all available samples (1797 x 20 first iteration of l, 1797 x 10 second iteration)
-            #pragma omp parallel for schedule(static) collapse(2)
+            #pragma omp target teams distribute parallel for schedule(static) collapse(2)
             for (size_t s = 0; s < n_samples; s++) {
                 // Compute the activation for each node on this layer
                 for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
@@ -491,7 +496,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         size_t this_nodes = nn->nodes_per_layer[nn->n_layers - 1];
         
         // Compute the deltas for all samples (1797 x 10 iterations)
-        #pragma omp parallel for schedule(static) collapse(2)
+        #pragma omp target teams distribute parallel for schedule(static) collapse(2)
         for (size_t s = 0; s < n_samples; s++) {
             for (size_t n = 0; n < this_nodes; n++) {
                 array** sample_outputs = layer_outputs[s];
@@ -518,7 +523,7 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
             size_t next_nodes = nn->nodes_per_layer[l + 1];
 
             // Loop through all the samples available on this layer to compute the deltas (1797 x 20 iterations)
-            #pragma omp parallel for schedule(static) collapse(2)
+            #pragma omp target teams distribute parallel for schedule(static) collapse(2)
             for (size_t s = 0; s < n_samples; s++) {
                 // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                 for (size_t n = 0; n < this_nodes; n++) {
@@ -635,4 +640,18 @@ double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expe
         correct += equal ? 1.0 : 0.0;
     }
     return correct / n_samples;
+}
+
+
+
+/***** OTHER TOOLS *****/
+
+void parse_opt_args(int argc, char** argv) {
+    // Just don't do anything (yet)
+    (void) argc;
+    (void) argv;
+}
+
+void print_opt_args() {
+    // Do nuhtin'
 }

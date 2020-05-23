@@ -4,7 +4,7 @@
  * Created:
  *   07/05/2020, 22:11:32
  * Last edited:
- *   09/05/2020, 17:37:40
+ *   5/23/2020, 10:22:35 PM
  * Auto updated?
  *   Yes
  *
@@ -14,7 +14,9 @@
 
 #include <stdio.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
 
 
 extern int omp_get_thread_num();
@@ -25,25 +27,26 @@ int main() {
 
     gettimeofday(&start, NULL);
 
-    // #pragma omp parallel
-    {
-        #pragma omp parallel
-        {
-        int num = omp_get_thread_num();
+    // Try some wacky kernel
+    int m = 50000;
+    int n = 50000;
+    float A[n][m];
+    float Anew[n][m];
 
-        printf("(Thread %d) Hello there!\n", num);
+    // Fill A with some nice values
+    for (int j = 0; j < n; j++) {
+        for (int i = 0; i < m; i++) {
+            A[j][i] = (float)rand()/(float)(RAND_MAX);
         }
+    }
 
-        #pragma omp parallel for
-        for (int i = 0; i < 64; i++) {
-            int num = omp_get_thread_num();
-            printf("(Thread %d) General Kenobi!\n", num);
-        }
-
-        #pragma omp parallel for
-        for (int i = 0; i < 64; i++) {
-            int num = omp_get_thread_num();
-            printf("(Thread %d) You are a bold one!\n", num);
+    // Do the parallel stuff!
+    float error = 0.0;
+    #pragma omp target teams distribute parallel for reduction(max:error) collapse(2)
+    for(int j = 1; j < n-1; j++) {
+        for(int i= 1; i< m-1; i++ ) {
+            Anew[j][i] = 0.25 * ( A[j][i+1] + A[j][i-1]+ A[j-1][i] + A[j+1][i]);
+            error = fmax(error, fabs(Anew[j][i] -A[j][i]));
         }
     }
 
