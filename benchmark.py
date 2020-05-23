@@ -151,7 +151,7 @@ if __name__ == "__main__":
     # Check if the prun library exists if we do so
     if args.reservation is not None:
         try:
-            subprocess.run(["prun", "--help"], check=True)
+            subprocess.run(["prun", "--help"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except (FileNotFoundError, subprocess.CalledProcessError):
             print(f"ERROR: 'prun' module not loaded or not on DAS5.", file=sys.stderr)
             exit(-1)
