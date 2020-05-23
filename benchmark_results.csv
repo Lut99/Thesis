@@ -1,3 +1,0 @@
-variation,iteration,num_threads,runtime,cputime
-sequential,0,-,84.305009,170.530856
-OMP_CPU8,0,4,223.756808,603.650253

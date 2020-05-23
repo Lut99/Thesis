@@ -172,7 +172,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     if len(cpus) > 0:
         print("Performing benchmarks for CPU implementations...")
         for cpu in cpus:
-            print(f" > Variation: {seq}")
+            print(f" > Variation: {cpu}")
 
             # Compile first
             print("      Compiling...", end="")
