@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/23/2020, 12:37:23 AM
+ *   5/23/2020, 5:24:27 PM
  * Auto updated?
  *   Yes
  *
@@ -620,4 +620,18 @@ double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expe
         correct += equal ? 1.0 : 0.0;
     }
     return correct / n_samples;
+}
+
+
+
+/***** OTHER TOOLS *****/
+
+void parse_opt_args(int argc, char** argv) {
+    // Simply do nothing, as no extra args yet
+    (void) argc;
+    (void) argv;
+}
+
+void print_opt_args() {
+    // Simply do nothing, as no extra args yet
 }

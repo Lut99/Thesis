@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   01/05/2020, 13:42:45
+ *   5/23/2020, 5:23:11 PM
  * Auto updated?
  *   Yes
  *
@@ -78,5 +78,15 @@ void round_output(size_t n_samples, array* outputs[n_samples]);
 
 /* Compares given output with given expected output. Returns an accuracy measure of how many samples were (almost) equal divided by the total amount of samples. */
 double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expected[n_samples]);
+
+
+
+/***** OTHER TOOLS *****/
+
+/* Parses given optional arguments according to the specific NeuralNetwork implementation. Note that these need to be offsetted to exclude the bin and dataset location. */
+void parse_opt_args(int argc, char** argv);
+
+/* Prints the optional arguments for to the specific NeuralNetwork implementation. */
+void print_opt_args();
 
 #endif

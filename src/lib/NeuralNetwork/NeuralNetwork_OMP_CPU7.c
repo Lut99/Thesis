@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/23/2020, 12:37:58 AM
+ *   5/23/2020, 5:28:22 PM
  * Auto updated?
  *   Yes
  *
@@ -32,6 +32,15 @@
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
 
+
+/***** OPTIONAL PARAMETERS *****/
+static unsigned int n_threads = 16;
+
+
+/***** OPENMP DECLARATIONS *****/
+extern int omp_set_num_threads();
+extern int omp_get_num_procs();
+extern int omp_get_thread_num();
 
 
 /***** HELPER FUNCTIONS *****/
@@ -637,3 +646,22 @@ double compute_accuracy(size_t n_samples, array* outputs[n_samples], array* expe
     }
     return correct / n_samples;
 }
+
+
+
+/***** OTHER TOOLS *****/
+
+void parse_opt_args(int argc, char** argv) {
+    // Parse and set number of threads as first argument
+    if (argc >= 1) {
+        // Set the number of threads
+        n_threads = atoi(argv[0]);
+    }
+    omp_set_num_threads(n_threads);
+}
+
+void print_opt_args() {
+    printf("Configuration:\n");
+    printf(" - Number of threads : %u\n\n", n_threads);
+}
+
