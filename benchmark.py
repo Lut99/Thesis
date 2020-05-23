@@ -32,7 +32,7 @@ def is_float(n):
         return False
 
 
-def run_iter(num_threads, var_ID, das_reservation):
+def run(num_threads, var_ID, das_reservation):
     cmd = ["bin/digits.out", "./digits.csv", f"{num_threads}"]
     if das_reservation is not None:
         cmd = ["prun", "-np", "1", "-reserve", f"{das_reservation}"] + cmd
@@ -69,6 +69,32 @@ def compile(var_ID):
         exit(-1)
 
 
+def run_benchmark(outputfile, variations, threads, iterations, das_reservation):
+    for num_threads in threads:
+        print(f" > NEW config (n_threads={num_threads}):")
+        for var_ID in variations:
+            print(f"    - Variation '{var_ID}'")
+            print("         Compiling...")
+            compile(var_ID)
+
+            avg_runtime = 0
+            for i in range(iterations):
+                print(f"         Running ({i + 1}/{iterations})...", end="")
+                sys.stdout.flush()
+
+                # Run it
+                runtime, cputime = run(num_threads, var_ID, das_reservation)
+                print(f" {runtime}s")
+
+                # Write the info about this run and the result to the file
+                print(f"{var_ID},{i},{num_threads},{runtime},{cputime}", file=outputfile)
+
+                avg_runtime += runtime
+
+            print(f"       > Average: {avg_runtime / iterations} seconds")
+    print("")
+
+
 def main(outputpath, variations, threads, iterations, das_reservation):
     print("\n### BENCHMARK TOOL for NEURALNETWORK.c ###\n")
 
@@ -101,31 +127,16 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print("variation,iter,num_threads,runtime,cputime", file=output)
     print(" Done\n")
 
+    if 'sequential' in variations:
+        # Print some information
+        print("Performing baseline test...")
+        run_benchmark(output, ['sequential'], [1], iterations, das_reservation)
+
+        # Don't forget to remove sequential from the list of candidates
+        variations.remove("sequential")
+
     print("Starting benchmark...")
-    results = defaultdict(list)
-    for num_threads in threads:
-        print(f" > NEW config (n_threads={num_threads}):")
-        for var_ID in variations:
-            print(f"    - Variation '{var_ID}'")
-            print("         Compiling...")
-            compile(var_ID)
-
-            avg_runtime = 0
-            for i in range(iterations):
-                print(f"         Running ({i + 1}/{iterations})...", end="")
-                sys.stdout.flush()
-
-                # Run it
-                runtime, cputime = run_iter(num_threads, var_ID, das_reservation)
-                print(f" {runtime}s")
-
-                # Write the info about this run and the result to the file
-                print(f"{var_ID},{i},{num_threads},{runtime},{cputime}", file=output)
-
-                avg_runtime += runtime
-
-            print(f"       > Average: {avg_runtime / iterations} seconds")
-    print("")
+    run_benchmark(output, variations, threads, iterations, das_reservation)
 
     # Close output file
     output.close()
@@ -185,11 +196,6 @@ if __name__ == "__main__":
         
         # Sort the list to achieve somewhat constant and logical ordering
         args.variations = sorted(args.variations)
-
-        # Find sequential, and if found, put it first
-        if "sequential" in args.variations:
-            args.variations.remove("sequential")
-            args.variations = ["sequential"] + args.variations
     else:
         # First, check if the files exist
         for var_ID in args.variations:
@@ -203,11 +209,6 @@ if __name__ == "__main__":
         
         # Order them
         args.variations = sorted(args.variations)
-
-        # Make sure sequential is the head
-        if "sequential" in args.variations:
-            args.variations.remove("sequential")
-            args.variations = ["sequential"] + args.variations
 
 
     # Check if the number of threads make sense
