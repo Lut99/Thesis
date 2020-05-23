@@ -21,12 +21,16 @@ INCLUDES=-I $(LIB)/include
 
 NN_VERSION=$(OBJ)/NeuralNetwork.o
 
+ifdef BENCHMARK
+GCC_ARGS+=-DBENCHMARK
+endif
+
 ifdef VARIATION
-ifneq ($(VARIATION), Sequential)
+ifneq ($(VARIATION), sequential)
 GCC_ARGS+=-fopenmp
 endif
 else
-VARIATION=Sequential
+VARIATION=sequential
 endif
 
 .PHONY: default dirs digits tests plot all
@@ -51,13 +55,13 @@ $(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
 $(OBJ)/Support.a: $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
 	ar cr $@ $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
 
-$(BIN)/digits_%.out: $(OBJ)/NeuralNetwork_%.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
+$(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/Digits.o $(OBJ)/Support.a $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
 
-digits: $(BIN)/digits_sequential.out
+digits: $(BIN)/digits.out
 
 playground: $(TST_BIN)/playground.out
 

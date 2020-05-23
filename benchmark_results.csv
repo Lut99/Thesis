@@ -1,0 +1,2 @@
+variation,iter,num_threads,runtime,cputime
+OMP_CPU8,0,4,121.783654,393.18105

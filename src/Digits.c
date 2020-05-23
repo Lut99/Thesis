@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   5/23/2020, 12:12:22 AM
+ *   5/23/2020, 3:50:39 PM
  * Auto updated?
  *   Yes
  *
@@ -180,6 +180,7 @@ int main(int argc, char** argv) {
     omp_set_num_threads(threads);
     #endif
 
+    #ifndef BENCHMARK
     printf("\n*** NEURAL NETWORK training DIGITS ***\n\n");
 
     #ifdef _OPENMP
@@ -191,6 +192,7 @@ int main(int argc, char** argv) {
     #endif
 
     printf("Loading digit dataset \"%s\"...\n", argv[1]);
+    #endif
     
     // Try to open the file
     FILE* data = fopen(argv[1], "r");
@@ -295,12 +297,18 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    #ifndef BENCHMARK
     printf("Done loading (loaded %d samples)\n\n", n_samples);
+    #endif
 
+    #ifndef BENCHMARK
     printf("Training network...\n");
+    #endif
 
     // Create training and testing subsets of the digits and classes matrix
+    #ifndef BENCHMARK
     printf("  Splitting test and train sets...\n");
+    #endif
     size_t training_size = n_samples * TRAIN_RATIO;
     size_t testing_size = n_samples - training_size;
     array** digits_train = digits;
@@ -309,7 +317,9 @@ int main(int argc, char** argv) {
     array** classes_test = classes + training_size;
 
     // Create a new neural network
+    #ifndef BENCHMARK
     printf("  Initializing Neural Network...\n");
+    #endif
     size_t hidden_layer_nodes[] = {20};
     neural_net* nn = create_nn(64, 1, hidden_layer_nodes, n_classes);
 
@@ -330,18 +340,28 @@ int main(int argc, char** argv) {
     // Write the costs for plotting
     write_costs(costs);
     #else
+    #ifndef BENCHMARK
     printf("  Training...\n");
+    #endif
     gettimeofday(&start_ms, NULL);
     start = clock();
     nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
     end = clock();
     gettimeofday(&end_ms, NULL);
+    #ifdef BENCHMARK
+    printf("%f,%f",
+           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
+           (end - start) / (double) CLOCKS_PER_SEC);
+    #else
     printf("  Time taken: %f seconds / CPU time taken: %f seconds\n\n",
            ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
            (end - start) / (double) CLOCKS_PER_SEC);
     #endif
+    #endif
 
+    #ifndef BENCHMARK
     printf("Validating network...\n");
+    #endif
 
     // Test the network
     array** outputs = malloc(sizeof(array*) * testing_size);
@@ -355,10 +375,14 @@ int main(int argc, char** argv) {
 
     // Compute the accuracy
     double accuracy = compute_accuracy(testing_size, outputs, classes_test);
+    #ifndef BENCHMARK
     printf("  Network accuracy: %f\n\n", accuracy);
+    #endif
     
     // Cleanup
+    #ifndef BENCHMARK
     printf("Cleaning up...\n");
+    #endif
     destroy_array_list(sample, digits);
     destroy_array_list(sample, classes);
     destroy_array_list(testing_size - 1, outputs);
@@ -368,5 +392,7 @@ int main(int argc, char** argv) {
     destroy_nn(nn);
     fclose(data);
 
+    #ifndef BENCHMARK
     printf("Done.\n\n");
+    #endif
 }
