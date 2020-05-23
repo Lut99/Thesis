@@ -73,11 +73,11 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print("\n### BENCHMARK TOOL for NEURALNETWORK.c ###\n")
 
     print(f"Configuration:")
-    print(f"  - Output file           : \"{outputpath}\"")
-    print(f"  - Benchmarking versions : {variations}")
-    print(f"  - Threads to test       : {threads}")
-    print(f"  - Iterations per test   : {iterations}")
-    print(f"  - DAS5-mode             : {das_reservation is not None}")
+    print(f" - Output file           : \"{outputpath}\"")
+    print(f" - Benchmarking versions : {variations}")
+    print(f" - Threads to test       : {threads}")
+    print(f" - Iterations per test   : {iterations}")
+    print(f" - DAS5-mode             : {das_reservation is not None}")
     if das_reservation is not None:
         print(f"    - DAS5 reservation    : {das_reservation}")
     print("")
@@ -104,15 +104,15 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print("Starting benchmark...")
     results = defaultdict(list)
     for num_threads in threads:
-        print(f"  > NEW config (n_threads={num_threads}):")
+        print(f" > NEW config (n_threads={num_threads}):")
         for var_ID in variations:
-            print(f"      - Variation '{var_ID}'")
-            print("            Compiling...")
+            print(f"    - Variation '{var_ID}'")
+            print("         Compiling...")
             compile(var_ID)
 
             avg_runtime = 0
             for i in range(iterations):
-                print(f"            Running ({i + 1}/{iterations})...", end="")
+                print(f"         Running ({i + 1}/{iterations})...", end="")
                 sys.stdout.flush()
 
                 # Run it
@@ -124,7 +124,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
 
                 avg_runtime += runtime
 
-            print(f"          > Average: {avg_runtime / iterations} seconds")
+            print(f"       > Average: {avg_runtime / iterations} seconds")
     print("")
 
     # Close output file

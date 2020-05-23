@@ -1,2 +1,2 @@
 variation,iter,num_threads,runtime,cputime
-OMP_CPU8,0,4,121.783654,393.18105
+sequential,0,1,106.123878,106.121711
