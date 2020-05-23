@@ -16,11 +16,13 @@ import subprocess
 from collections import defaultdict
 
 
+# Constants
 DEFAULT_OUTPUTPATH = "benchmark_results.csv"
 DEFAULT_CODEDIR = "src/lib/NeuralNetwork"
 DEFAULT_VARIATIONS = ["*"]
 DEFAULT_THREADS = [1, 2, 4, 8, 16, 32]
 DEFAULT_ITERATIONS = 10
+HEADERS = ["num_threads"]
 
 
 def is_float(n):
@@ -32,8 +34,8 @@ def is_float(n):
         return False
 
 
-def run(num_threads, var_ID, das_reservation):
-    cmd = ["bin/digits.out", "./digits.csv", f"{num_threads}"]
+def run(var_ID, params, das_reservation):
+    cmd = ["bin/digits.out", "./digits.csv"] + [str(params[header]) for header in HEADERS if header in params]
     if das_reservation is not None:
         cmd = ["prun", "-np", "1", "-reserve", f"{das_reservation}"] + cmd
 
@@ -69,30 +71,29 @@ def compile(var_ID):
         exit(-1)
 
 
-def run_benchmark(outputfile, variations, threads, iterations, das_reservation):
-    for num_threads in threads:
-        print(f" > NEW config (n_threads={num_threads}):")
-        for var_ID in variations:
-            print(f"    - Variation '{var_ID}'")
-            print("         Compiling...")
-            compile(var_ID)
+def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
+    avg_runtime = 0
+    for i in range(iterations):
+        print(f"         Iter ({i + 1}/{iterations})...", end="")
+        sys.stdout.flush()
 
-            avg_runtime = 0
-            for i in range(iterations):
-                print(f"         Running ({i + 1}/{iterations})...", end="")
-                sys.stdout.flush()
+        # Run it
+        runtime, cputime = run(var_ID, params, das_reservation)
+        print(f" {runtime}s")
 
-                # Run it
-                runtime, cputime = run(num_threads, var_ID, das_reservation)
-                print(f" {runtime}s")
+        # Write the info about this run and the result to the file
+        print(f"{var_ID},{i}", file=outputfile, end="")
+        for header in HEADERS:
+            if header in params:
+                print(f",{params[header]}", file=outputfile, end="")
+            else:
+                # For headers that are not present in the current parameters, just print a '-'
+                print(f",-", file=outputfile, end="")
+        print(f",{runtime},{cputime}", file=outputfile)
 
-                # Write the info about this run and the result to the file
-                print(f"{var_ID},{i},{num_threads},{runtime},{cputime}", file=outputfile)
+        avg_runtime += runtime
 
-                avg_runtime += runtime
-
-            print(f"       > Average: {avg_runtime / iterations} seconds")
-    print("")
+    print(f"       > Average: {avg_runtime / iterations} seconds")
 
 
 def main(outputpath, variations, threads, iterations, das_reservation):
@@ -124,19 +125,70 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print(" Done\n")
 
     print("Writing headers...", end="")
-    print("variation,iter,num_threads,runtime,cputime", file=output)
+    print("variation,iteration," + ",".join(HEADERS) + ",runtime,cputime", file=output)
     print(" Done\n")
 
-    if 'sequential' in variations:
-        # Print some information
-        print("Performing baseline test...")
-        run_benchmark(output, ['sequential'], [1], iterations, das_reservation)
+    print("Splitting variations by functionality...")
+    seqs = []
+    cpus = []
+    gpus = []
+    for variation in variations:
+        if variation.lower() == "sequential":
+            seqs.append(variation)
+        if "cpu" in variation.lower():
+            cpus.append(variation)
+        if "gpu" in variation.lower():
+            gpus.append(variation)
+    if len(seqs) > 0:
+        print(f" > Found {len(seqs)} variation(s) that are sequentially implemented")
+    if len(cpus) > 0:
+        print(f" > Found {len(cpus)} variation(s) that are optimised for the CPU")
+    if len(gpus) > 0:
+        print(f" > Found {len(gpus)} variation(s) that are optimised for the GPU")
+    print("Done\n")
 
-        # Don't forget to remove sequential from the list of candidates
-        variations.remove("sequential")
+    # First, benchmark the sequential ones
+    if len(seqs) > 0:
+        print("Performing benchmarks for sequential implementations...")
+        for seq in seqs:
+            print(f" > Variation: {seq}")
 
-    print("Starting benchmark...")
-    run_benchmark(output, variations, threads, iterations, das_reservation)
+            # Compile first
+            print("      Compiling...", end="")
+            sys.stdout.flush()
+            compile(var_ID)
+            print(" Done")
+
+            # Run for the different parameters
+            print("      Running...")
+            run_benchmark(output, seq, iterations, {}, das_reservation)
+            print("      Done")
+        print("Done\n")
+
+    # Next up: CPU benchmarks
+    if len(cpus) > 0:
+        print("Performing benchmarks for CPU implementations...")
+        for cpu in cpus:
+            print(f" > Variation: {seq}")
+
+            # Compile first
+            print("      Compiling...", end="")
+            sys.stdout.flush()
+            compile(var_ID)
+            print(" Done")
+
+            # Run for the different parameters
+            print("      Running...")
+            for n_threads in threads:
+                print(f"       > Params: n_threads={n_threads}")
+                run_benchmark(output, cpu, iterations, {"num_threads": n_threads}, das_reservation)
+            print("      Done")
+        print("Done\n")
+
+    # Finally, GPU benchmarks
+    if len(gpus) > 0:
+        print("Performing benchmarks for GPU implementations")
+        print("Done\n")
 
     # Close output file
     output.close()
