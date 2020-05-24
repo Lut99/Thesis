@@ -1,5 +1,8 @@
 GCC=gcc
 GCC_ARGS=-std=c11 -O2 -Wall -Wextra
+NVCC=nvcc
+NVCC_ARGS=-O2 --gpu-architecture=compute_52 --gpu-code=sm_52
+
 EXT_LIBS=-lm
 
 ifdef DEBUG
@@ -17,7 +20,7 @@ OBJ=$(BIN)/obj
 TST=tests
 TST_BIN=$(BIN)/tests
 
-INCLUDES=-I $(LIB)/include
+INCLUDES=-I$(LIB)/include
 
 NN_VERSION=$(OBJ)/NeuralNetwork.o
 
@@ -28,6 +31,12 @@ endif
 ifdef VARIATION
 ifneq ($(VARIATION), sequential)
 GCC_ARGS+=-fopenmp
+ifneq (,$(findstring omp_gpu,$(shell echo $(VARIATION) | tr A-Z a-z)))
+# Set the compiler to the one in /var/scratch/tmuller
+GCC=/var/scratch/tmuller/opt/offload/install/bin/gcc
+# Add the offloading args
+GCC_ARGS+= -foffload="-lm" -foffload=nvptx-none
+endif
 endif
 else
 VARIATION=sequential
@@ -49,6 +58,8 @@ $(OBJ)/%.o: $(LIB)/%.c | dirs
 
 $(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+$(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.cu | dirs
+	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ --device-c $< $(EXT_LIBS)
 $(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
@@ -57,6 +68,7 @@ $(OBJ)/Support.a: $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
 
 $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(OBJ)/Digits.o $(OBJ)/Support.a $(EXT_LIBS)
+
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
