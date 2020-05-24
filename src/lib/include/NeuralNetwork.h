@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/23/2020, 5:23:11 PM
+ *   5/24/2020, 4:43:25 PM
  * Auto updated?
  *   Yes
  *
@@ -33,7 +33,7 @@ typedef struct NEURALNET {
     size_t n_weights;
     /* List of biases for each layer, save the output layer. */
     array** biases;
-    /* List of weights for each layer. */
+    /* List of weights for each layer (each one has size this_layer_nodes x next_layer_nodes) */
     matrix** weights;
 } neural_net;
 

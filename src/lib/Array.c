@@ -4,7 +4,7 @@
  * Created:
  *   28/04/2020, 19:36:38
  * Last edited:
- *   01/05/2020, 14:43:06
+ *   5/24/2020, 3:17:26 PM
  * Auto updated?
  *   Yes
  *
@@ -26,7 +26,7 @@
 
 array* create_empty_array(size_t size) {
     // Allocate the struct
-    array* to_ret = malloc(sizeof(array) + size * sizeof(double));
+    array* to_ret = (array*) malloc(sizeof(array) + size * sizeof(double));
     if (to_ret == NULL) {
         fprintf(stderr, "ERROR: create_empty_array: could not allocate memory (%lu bytes).\n",
                 sizeof(array) + size * sizeof(double));
@@ -60,7 +60,7 @@ array* create_array(size_t size, double* data) {
 
 array* create_linked_array(size_t size, double* data) {
     // Create an array without place for extra data
-    array* to_ret = malloc(sizeof(array));
+    array* to_ret = (array*) malloc(sizeof(array));
     if (to_ret == NULL) {
         fprintf(stderr, "ERROR: create_linked_array: could not allocate array struct (%lu bytes).\n",
                 sizeof(array));

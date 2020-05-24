@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   01/05/2020, 13:47:28
+ *   5/24/2020, 12:58:36 PM
  * Auto updated?
  *   Yes
  *
@@ -63,100 +63,6 @@ matrix* subset_matrix(const matrix* m, size_t row_min, size_t row_max, size_t co
 
 /* Destroys given matrix. Note that its equal to calling free(m) on it. */
 void destroy_matrix(matrix* m);
-
-
-
-/***** SCRATCHPAD MEMORY MANAGEMENT *****/
-
-/* Reserves space on the given scratchpad memory block. If it failed in some way, prints to stderr and returns NULL. */
-matrix* reserve_empty_matrix(scratchpad* pad, size_t rows, size_t cols);
-
-
-
-/***** MATH OPERATIONS *****/
-
-/* Transposes given matrix and returns the result as a new matrix. */
-matrix* matrix_transpose(const matrix *m);
-
-/* Adds a constant to given matrix and returns the result in a new matrix. */
-matrix* matrix_add_c(const matrix *m1, double c);
-/* Adds a constant to given matrix and returns the result in the given matrix. */
-matrix* matrix_add_c_inplace(matrix* m1, double c);
-
-/* Adds two matrices and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_add(const matrix *m1, const matrix *m2);
-/* Adds two matrices and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_add_inplace(matrix* m1, const matrix *m2);
-
-/* Adds a vector to each column of the matrix and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_add_vec(const matrix* m1, const matrix* v1);
-/* Adds a vector to each column of the matrix and returns the result in the first argument (the matrix). Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_add_vec_inplace(matrix* m1, const matrix* v1);
-
-/* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
-matrix* matrix_sub1_c(const matrix *m1, double c);
-/* Subtracts given constant from given matrix (m1 - c). Returns the result in a new matrix. */
-matrix* matrix_sub1_c_inplace(matrix *m1, double c);
-/* Subtracts given matrix from given constant (c - m1). Returns the result in the given matrix. */
-matrix* matrix_sub2_c(double c, const matrix *m1);
-/* Subtracts given matrix from given constant (c - m1). Returns the result in the given matrix. */
-matrix* matrix_sub2_c_inplace(double c, matrix *m1);
-
-/* Subtracts the second matrix from the first and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_sub(const matrix *m1, const matrix *m2);
-/* Subtracts the second matrix from the first and returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_sub_inplace(matrix* m1, const matrix *m2);
-
-/* Multiplies given matrix with a scaler and returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul_c(const matrix *m1, double c);
-/* Multiplies given matrix with a scaler and returns the result in the given matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul_c_inplace(matrix* m1, double c);
-
-/* Performs an element-wise multiplication on given matrices. Returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul(const matrix *m1, const matrix *m2);
-/* Performs an element-wise multiplication on given matrices. Returns the result in the first matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_mul_inplace(matrix* m1, const matrix *m2);
-
-/* Performs a matrix multiplication on given matrices. Returns the result in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_matmul(const matrix *m1, const matrix *m2);
-
-/* Returns a new matrix containing the tensor product of the given two matrices. */
-matrix* matrix_tensor(const matrix *m1, const matrix *m2);
-
-/* Inverts all elements in given matrix, and returns the result in a new matrix. */
-matrix* matrix_inv(const matrix* m1);
-/* Inverts all elements in given matrix, and returns the result in the given matrix. */
-matrix* matrix_inv_inplace(matrix* m1);
-
-/* Takes the exponent of each element, e.g., x = e^x. Returns the result in a new matrix. */
-matrix* matrix_exp(const matrix* m1);
-/* Takes the exponent of each element, e.g., x = e^x. Returns the result in the given matrix. */
-matrix* matrix_exp_inplace(matrix* m1);
-
-/* Takes the hyperbolic tangent of each element. Returns the result in a new matrix. */
-matrix* matrix_tanh(const matrix* m1);
-/* Tales the hyperbolic tangent of each element. Returns the result in the given matrix. */
-matrix* matrix_tanh_inplace(matrix* m1);
-
-/* Takes the natural logarithm of each element. Returns the result in a new matrix. */
-matrix* matrix_ln(const matrix* m1);
-/* Takes the natural logarithm of each element. Returns the result in the given matrix. */
-matrix* matrix_ln_inplace(matrix* m1);
-
-/* Squares each element in the matrix. Returns the result in a new matrix. */
-matrix* matrix_square(const matrix* m1);
-/* Squares each element in the matrix. Returns the result in the given matrix. */
-matrix* matrix_square_inplace(matrix* m1);
-
-/* Sums all elements in the matrix and returns the result. */
-double matrix_sum(const matrix* m1);
-/* Sums the elements in a matrix horizontally, resulting in a vector with the sum of each row as element. */
-matrix* matrix_sum_h(const matrix* m1);
-/* Returns the maximum of the elements in the matrix. */
-double matrix_max(const matrix* m1);
-
-/* Concatenates two matrices horizontally. The result is returned in a new matrix. Returns NULL and prints to stderr if the sizes are not correct. */
-matrix* matrix_concat_h(const matrix *m1, const matrix *m2);
 
 
 /***** DEBUG TOOLS *****/
