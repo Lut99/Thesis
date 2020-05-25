@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   5/25/2020, 10:18:44 PM
+ *   5/25/2020, 9:42:54 PM
  * Auto updated?
  *   Yes
  *
@@ -34,10 +34,10 @@
  *   @param n_samples: total number of samples to process
  */
  __global__ void FwdPassKernel(double* outputs, size_t outputs_pitch,
-                               double* biases,
-                               double* weights, size_t weights_pitch,
-                               double* inputs, size_t inputs_pitch,
-                               size_t prev_nodes, size_t this_nodes, size_t n_samples) {
+    double* biases,
+    double* weights, size_t weights_pitch,
+    double* inputs, size_t inputs_pitch,
+    size_t prev_nodes, size_t, this_nodes, size_t n_samples) {
     // Get the index of this particular thread
     int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -79,11 +79,11 @@
 *   @param n_samples: total number of samples to process
 */
 __global__ void BckPassOutputKernel(double* delta_biases, size_t delta_biases_pitch,
-                                    double* delta_weights, size_t delta_weights_pitch,
-                                    double* layer_inputs, size_t layer_inputs_pitch,
-                                    double* layer_outputs, size_t layer_outputs_pitch,
-                                    double* expected, size_t expected_pitch,
-                                    size_t prev_nodes, size_t this_nodes, size_t n_samples) {
+           double* delta_weights, size_t delta_weights_pitch,
+           double* layer_inputs, size_t layer_inputs_pitch,
+           double* layer_outputs, size_t layer_outputs_pitch,
+           double* expected, size_t expected_pitch,
+           size_t prev_nodes, size_t this_nodes, size_t n_samples) {
     // Get the index of this particular thread
     int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -132,13 +132,13 @@ __global__ void BckPassOutputKernel(double* delta_biases, size_t delta_biases_pi
 *   @param n_samples: total number of samples to process
 */
 __global__ void BckPassHiddenKernel(double* delta_biases, size_t delta_biases_pitch,
-                                    double* delta_weights, size_t delta_weights_pitch,
-                                    double* deltas, size_t deltas_pitch,
-                                    double* weights, size_t weights_pitch,
-                                    double* layer_inputs, size_t layer_inputs_pitch,
-                                    double* layer_outputs, size_t layer_outputs_pitch,
-                                    size_t prev_nodes, size_t this_nodes, size_t next_nodes,
-                                    size_t n_samples) {
+           double* delta_weights, size_t delta_weights_pitch,
+           double* deltas, size_t deltas_pitch,
+           double* weights, size_t weights_pitch,
+           double* layer_inputs, size_t layer_inputs_pitch,
+           double* layer_outputs, size_t layer_outputs_pitch,
+           size_t prev_nodes, size_t this_nodes, size_t next_nodes,
+           size_t n_samples) {
     // Get the index of this particular thread
     int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -177,7 +177,7 @@ __global__ void BckPassHiddenKernel(double* delta_biases, size_t delta_biases_pi
 /***** NEURAL NETWORK OPERATIONS *****/
 
 // Cuda memory help from https://stackoverflow.com/questions/16119943/how-and-when-should-i-use-pitched-pointer-with-the-cuda-api
-void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected, double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
     
     /***** GPU MEMORY INITIALISATION *****/
 
@@ -234,12 +234,14 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
     for (size_t l = 0; l < nn->n_weights; l++) {
         // First, we allocate all memory
         size_t this_nodes = nn->nodes_per_layer[l + 1];
-        cudaMallocPitch((void**) (delta_biases + l), delta_biases_pitches + l, sizeof(double) * this_nodes, n_samples);
-        delta_biases_zero[l] = (double*) malloc(sizeof(double) * this_nodes * n_samples);
+        cudaMallocPitch((void**) (delta_biases + l), delta_biases_pitches + l, sizeof(double) * this_nodes, s_samples);
+        delta_biases_zero[l] = (double*) malloc(sizeof(double) * this_nodes * s_samples);
 
         // Set the host-side array to 0
-        for (size_t i = 0; i < this_nodes * n_samples; i++) {
-            delta_biases_zero[l][i] = 0;
+        for (size_t s = 0; s < this_nodes; s++) {
+            for (size_t n = 0; n < this_nodes; n++) {
+                delta_biases_zero[l][s][n] = 0;
+            }
         }
     }
 
@@ -263,8 +265,12 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
         delta_biases_zero[l] = (double*) malloc(sizeof(double) * w * h * d);
 
         // Set the host-side array to 0
-        for (size_t i = 0; i < d * h * w; i++) {
-            delta_biases_zero[l][i] = 0;
+        for (size_t z = 0; z < d; z++) {
+            for (size_t y = 0; y < h; y++) {
+                for (size_t x = 0; x < w; x++) {
+                    delta_biases_zero[l][z * (w * h) + y * w + x] = 0;
+                }
+            }
         }
     }
 
@@ -274,7 +280,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
     // The expected values are formatted as a 2D, n_samples x nodes_in_output_layer pitched matrix.
     double* expected_gpu;
     size_t expected_gpu_pitch;
-    cudaMallocPitch((void**) &expected_gpu, &expected_gpu_pitch, sizeof(double) * nn->nodes_per_layer[nn->n_layers - 1], n_samples);
+    cudaMallocPitch((void**) &expecteds, &expecteds_pitch, sizeof(double) * nn->nodes_per_layer[nn->n_layers - 1], n_samples);
     // Copy all expected values for each sample, which we have to do row-by-row due to unfortunate formatting of expected
     for (size_t s = 0; s < n_samples; s++) {
         double* ptr = (double*) ((char*) expected_gpu + s * expected_gpu_pitch);
@@ -284,10 +290,9 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
     /***** ITERATIONS *****/
 
-    // Choose block size, but leave computation of the number of blocks to later as these are
-    //   layer-dependent
+    // Choose block size
     int threadsPerBlock = 256;
-    int blocksPerGrid;
+    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
     
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
@@ -296,7 +301,6 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
         // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
         for (size_t l = 1; l < nn->n_layers; l++) {
             // Call upon the actiation kernel (should do 1797 x 20 elements for first iteration, 1797 x 10 elements for second)
-            blocksPerGrid = (n_samples * nn->nodes_per_layer[l] + threadsPerBlock - 1) / threadsPerBlock;
             FwdPassKernel<<<blocksPerGrid, threadsPerBlock>>>(
                 layer_outputs[l], layer_outputs_pitches[l],
                 biases[l - 1],
@@ -318,8 +322,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
         // Then, compute the error at the output laye (1797 x 10 iterations)
         size_t l = nn->n_layers - 1;
-        blocksPerGrid = (n_samples * nn->nodes_per_layer[l] + threadsPerBlock - 1) / threadsPerBlock;
-        BckPassOutputKernel<<<blocksPerGrid, threadsPerBlock>>>(
+        BckPassOutputKernel<<<blockPerGrid, threadsPerBlock>>>(
             delta_biases[l - 1], delta_biases_pitches[l - 1],
             delta_weights[l - 1], delta_weights_pitches[l - 1],
             layer_outputs[l - 1], layer_outputs_pitches[l - 1],
@@ -330,8 +333,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
         // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
         for (l = nn->n_layers - 2; l > 0; l--) {
-            blocksPerGrid = (n_samples * nn->nodes_per_layer[l] + threadsPerBlock - 1) / threadsPerBlock;
-            BckPassHiddenKernel<<<blocksPerGrid, threadsPerBlock>>>(
+            BckPassHiddenKernel<<<blockPerGrid, threadsPerBlock>>>(
                 delta_biases[l - 1], delta_biases_pitches[l - 1],
                 delta_weights[l - 1], delta_weights_pitches[l - 1],
                 delta_biases[l], delta_biases_pitches[l],
@@ -365,7 +367,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
     /* BIASES & WEIGHTS */
 
     // Simply loop through all layers (except the last one), and clean everything weight & bias related.
-    for (size_t l = 0; l < nn->n_weights; l++) {
+    for (size_t l = 0; l < nn->n_layers - 1; l++) {
         // Free the device-side stuff
         cudaFree(biases[l]);
         cudaFree(delta_biases[l]);
@@ -373,22 +375,21 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
         cudaFree(delta_weights[l]);
 
         // But don't forget the two host-side arrays
-        free(delta_biases_zero[l]);
         free(delta_weights_zero[l]);
+        free(delta_biases_zero[l]);
     }
+
+    /* WEIGHTS */
 
     
     /* LAYER OUTPUTS */
 
-    // Loop through all layers, including the input as this is copied to the GPU
-    for (size_t l = 0; l < nn->n_layers; l++) {
-        // Free the device-side stuff
-        cudaFree(layer_outputs[l]);
-    }
+    
+    /* DELTA BIASES */
+
+
+    /* DELTA WEIGHTS */
 
 
     /* EXPECTED */
-
-    // Finally, clear the expected list
-    cudaFree(expected_gpu);
 }
