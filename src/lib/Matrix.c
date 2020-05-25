@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:37
  * Last edited:
- *   5/24/2020, 12:59:29 PM
+ *   5/25/2020, 10:08:02 PM
  * Auto updated?
  *   Yes
  *
@@ -67,7 +67,7 @@ matrix* create_empty_vector(size_t size) {
     return to_ret;
 }
 
-matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
+matrix* create_matrix(size_t rows, size_t cols, const double* data) {
     // Create an empty matrix with the same dimensions
     matrix* to_ret = create_empty_matrix(rows, cols);
     if (to_ret == NULL) {
@@ -76,17 +76,15 @@ matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]) {
     }
 
     // Copy the data from the given pointer
-    for (size_t y = 0; y < rows; y++) {
-        for (size_t x = 0; x < cols; x++) {
-            to_ret->data[y * cols + x] = data[y][x];
-        }
+    for (size_t i = 0; i < rows * cols; i++) {
+        to_ret->data[i] = data[i];
     }
 
     // Return
     return to_ret;
 }
 
-matrix* create_vector(size_t size, const double data[size]) {
+matrix* create_vector(size_t size, const double* data) {
     // Create an empty matrix with the correct dimensions
     matrix* to_ret = create_empty_vector(size);
     if (to_ret == NULL) {

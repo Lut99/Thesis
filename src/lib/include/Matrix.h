@@ -4,7 +4,7 @@
  * Created:
  *   16/04/2020, 22:19:54
  * Last edited:
- *   5/24/2020, 12:58:36 PM
+ *   5/25/2020, 10:07:06 PM
  * Auto updated?
  *   Yes
  *
@@ -44,9 +44,9 @@ matrix* create_empty_matrix(size_t rows, size_t cols);
 matrix* create_empty_vector(size_t size);
 
 /* Creates a new matrix object with the given size. Values are copied from given data array, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
-matrix* create_matrix(size_t rows, size_t cols, const double data[rows][cols]);
+matrix* create_matrix(size_t rows, size_t cols, const double* data);
 /* Creates a new matrix object with the given size as number of rows and one column. Values are copied from given data array, and note that this object will have to be destroyed. If it fails to allocate, prints to stderr and returns NULL. */
-matrix* create_vector(size_t size, const double data[size]);
+matrix* create_vector(size_t size, const double* data);
 
 /* Creates a new matrix object with the given size. The matrix will simply reference to the given data, i.e., does not copy it. Note that the matrix object itself will be destroyed (which will not destroy the referenced data object). If it fails to allocate, prints to stderr and returns NULL. */
 matrix* link_matrix(size_t rows, size_t cols, double* data);
