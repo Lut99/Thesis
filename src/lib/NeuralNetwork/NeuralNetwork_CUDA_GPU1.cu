@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   5/25/2020, 10:18:44 PM
+ *   5/26/2020, 12:15:16 AM
  * Auto updated?
  *   Yes
  *
@@ -16,6 +16,23 @@
 **/
 
 #include "NeuralNetwork.h"
+
+
+/***** IDEAS *****/
+ 
+/* Maybe replace copying with a simple Kernel which sets everything to naught?
+ * I mean, the data is already there, all the CPU / GPU have to do is launch it
+ * and we're done. In fact, can be done in parallel with the activation
+ * function (different stream) to achieve more speedup!
+ * (Expected time expense: small, as is simple kernel (except when looking at
+ *  multiple streams but should be feasable in theory?))
+ */
+
+/* Also, I can try to copy relavant loop data to shared cache mem or something
+ *   first, if feasable (look into this) to speed that up, hopefully by quite
+ *   some. EDIT: Maybe not that useful as we re-use NO data (within one kernel)
+ * (Expected time expense: larger)
+ */
 
 
 /***** CUDA KERNELS *****/
@@ -308,7 +325,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
 
         /***** BACKWARD PASS *****/
-        
+
         // Reset the delta biases and delta weights by copying the host-side, 0-filled ones over them
         for (size_t l = 0; l < nn->n_weights; l++) {
             size_t w = sizeof(double) * nn->nodes_per_layer[l + 1];
