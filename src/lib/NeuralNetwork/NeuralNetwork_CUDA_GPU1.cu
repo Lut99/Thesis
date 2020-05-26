@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   5/26/2020, 12:15:16 AM
+ *   5/26/2020, 12:06:48 PM
  * Auto updated?
  *   Yes
  *
@@ -221,9 +221,9 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
         cudaMemcpy2D((void*) weights[l], weights_pitches[l], (void*) nn->weights[l]->data, w, w, h, cudaMemcpyHostToDevice);
     }
 
-    
+
     /* LAYER OUTPUTS */
-    
+
     // The layer outputs is for every layer a matrix of samples by nodes_for_that_layer elements.
     //   Just as with the weights do we use pitches, and create a list to store those. Note that
     //   only the inputs need to be copied, as the rest serves as a buffer.
@@ -240,7 +240,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
         cudaMemcpy((void*) ptr, (void*) inputs[s]->d, sizeof(double) * inputs[s]->size, cudaMemcpyHostToDevice);
     }
 
-    
+
     /* DELTA BIASES */
 
     // We also have to declare the delta biases. Simultaneously, we allocate a host-side, zero-filled counterpart,
@@ -262,7 +262,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
 
     /* DELTA WEIGHTS */
-    
+
     // Declare the delta weights. Note that we pitch a 3D-array here. Not pretty, but better than
     //   the endless structs 3D require from us. Just as with the delta biases, create a host-side
     //   zero-filled one that is used for resetting.
@@ -287,7 +287,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
 
 
     /* EXPECTED */
-    
+
     // The expected values are formatted as a 2D, n_samples x nodes_in_output_layer pitched matrix.
     double* expected_gpu;
     size_t expected_gpu_pitch;
@@ -305,7 +305,7 @@ void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected
     //   layer-dependent
     int threadsPerBlock = 256;
     int blocksPerGrid;
-    
+
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
         /***** FORWARD PASS *****/

@@ -4,7 +4,7 @@
  * Created:
  *   5/24/2020, 9:25:20 PM
  * Last edited:
- *   5/26/2020, 12:00:40 AM
+ *   5/26/2020, 6:04:01 PM
  * Auto updated?
  *   Yes
  *
@@ -20,47 +20,12 @@
 #include <math.h>
 
 
-__global__ void reduceKernel(unsigned long* result, unsigned long* to_reduce, size_t N) {
+__global__ void reduceKernelA(unsigned long* result, unsigned long* to_reduce, size_t N) {
     // Make sure we are allowed to do work
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i < N) {
-        // Step 1: fetch global memory to a local shared cache for this block alone
-
-        // First, we allocate shared dynamic memory in the block memory
-        extern __shared__ unsigned long cache[];
-
-        // Then, we load our part of the job in it
-        int tid = threadIdx.x;
-        cache[tid] = to_reduce[i];
-
-        // Make sure also threads outside of our warp did their thing
-        __syncthreads();
-
-        // Step 2: do the reduction
-
-        // In our local, superfast cache, let's reduce it
-        size_t cache_width;
-        if (threadIdx.x != blockDim.x - 1) {
-            // Normal width
-            cache_width = blockDim.x;
-        } else {
-            // Reduced width, as there may be caches missing
-            cache_width = N % blockDim.x;
-            if (cache_width == 0) {
-                // This would be impossible, as we won't have a block which has to do 0 elements
-                cache_width = blockDim.x;
-            }
-        }
-        
-        for (int s = cache_width/2; s > 0; s>>=1) {
-            if (tid < s) {
-                cache[tid] += cache[tid + s];
-            }
-            __syncthreads();
-        }
-
-        // Step 3: Write the cache memory back
-        if (tid == 0) { result[blockIdx.x] = cache[0]; }
+    int i = (blockDim.x * blockIdx.x + threadIdx.x);
+    if (i < N / 2) {
+        // Simply sum this and the next element
+        result[i] = to_reduce[i] + to_reduce[i + N / 2];
     }
 }
 
@@ -72,13 +37,17 @@ int main() {
     srand(time(NULL));
 
     // Create a list of elements to reduce (make it large, for fun)
-    size_t N = 50000;
+    size_t N = 1797 * 20;
     int max = 50;
     unsigned long to_reduce[N];
     for (size_t i = 0; i < N; i++) {
         to_reduce[i] = rand() % max;
     }
 
+
+
+
+    
     // Acquire a correct value, and benchmark the sequential version while we're at it
     gettimeofday(&start, NULL);
     
@@ -101,9 +70,9 @@ int main() {
 
     gettimeofday(&start, NULL);
 
-    // Allocate space for N + copy the data
+    // Allocate space for N (with a possible pad), then copy all the data
     unsigned long* to_reduce_gpu;
-    cudaMalloc(&to_reduce_gpu, sizeof(unsigned long) * N);
+    cudaMalloc(&to_reduce_gpu, sizeof(unsigned long) * (N + (N % 2 == 0 ? 0 : 1)));
     cudaMemcpy(to_reduce_gpu, to_reduce, sizeof(unsigned long) * N, cudaMemcpyHostToDevice);
 
     // Allocate space for the result
@@ -111,36 +80,32 @@ int main() {
     cudaMalloc(&result_gpu, sizeof(unsigned long) * N);
 
     // Next, invoke the kernel as many times as needed. Let's say that we do the rest manually from 32 and down
-    int threadsPerBlock = 32;
-    int to_go = N;
-    while (to_go > 32) {
-        int blocksPerGrid = to_go / threadsPerBlock + (to_go % threadsPerBlock == 0 ? 0 : 1);
-        reduceKernel<<<blocksPerGrid, threadsPerBlock, sizeof(unsigned long) * threadsPerBlock>>>(result_gpu, to_reduce_gpu, to_go);
-
-        to_go = blocksPerGrid;
-
-        printf("Next round:\n");
-        printf("to_go=%d\n", to_go);
-        cudaMemcpy(to_reduce, to_reduce_gpu, sizeof(unsigned long) * N + to_pad, cudaMemcpyDeviceToHost);
-        printf("Elements of list: [");
-        for (size_t i = 0; i < N + to_pad; i++) {
-            if (i > 0) { printf(", "); }
-            printf("%lu", to_reduce[i]);
+    int threads_per_block = 32;
+    int to_do = N;
+    while (to_do > 32) {
+        // First, if to_do is uneven, set the value after that to 0
+        if (to_do % 2 != 0) {
+            cudaMemsetAsync(to_reduce_gpu + to_do, 0, sizeof(unsigned long));
+            to_do++;
         }
-        printf("] (%lu long)\n", N + to_pad);
 
-        // Swap dem pointers
-        unsigned long* temp = result_gpu;
-        result_gpu = to_reduce_gpu;
-        to_reduce_gpu = temp;
+        // Next, launch the kernel
+        int blocks_per_grid = to_do / threads_per_block + (to_do % threads_per_block == 0 ? 0 : 1);
+        reduceKernelA<<<blocks_per_grid, threads_per_block>>>(result_gpu, to_reduce_gpu, to_do);
+
+        // We can already decrease to_do and swap the pointers
+        to_do >>= 1;
+        unsigned long* temp = to_reduce_gpu;
+        to_reduce_gpu = result_gpu;
+        result_gpu = temp;
     }
 
     // Copy the memory back
-    cudaMemcpy(to_reduce, result_gpu, sizeof(unsigned long) * to_go, cudaMemcpyDeviceToHost);
+    cudaMemcpy(to_reduce, to_reduce_gpu, sizeof(unsigned long) * to_do, cudaMemcpyDeviceToHost);
 
     // Manually combine all intermediate results
     unsigned long result = 0;
-    for (size_t i = 0; i < to_go; i++) {
+    for (size_t i = 0; i < to_do; i++) {
         result += to_reduce[i];
     }
 
