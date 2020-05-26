@@ -4,7 +4,7 @@
  * Created:
  *   5/24/2020, 9:25:20 PM
  * Last edited:
- *   5/27/2020, 12:01:07 AM
+ *   5/26/2020, 11:50:27 PM
  * Auto updated?
  *   Yes
  *
@@ -85,18 +85,17 @@ __global__ void reduceKernel3D(unsigned long* list, size_t list_pitch,
     size_t y = yz % height;
     size_t z = yz / height;
 
-    // Only do work if still within range
-    if (x < width && y < height && z < depth / 2) {
-        // Simply sum this and the next element. Make sure to stay in bounds
-        size_t half_N = ceil(depth / 2.0);
-        unsigned long* list_ptr = (unsigned long*) ((char*) list + z * list_pitch * width + y * list_pitch) + x;
-        unsigned long list_val = *((unsigned long*) ((char*) list + (z + half_N) * list_pitch * width + y * list_pitch) + x);
-        // unsigned long old = *list_ptr;
-        *list_ptr += list_val;
+    printf("Decoded %lu into: x=%lu,y=%lu,z=%lu. Encoded: %lu\n",
+           i, x, y, z, z * width * height + y * width + x);
 
-        // printf("(%lu,%lu,%lu): %lu = %lu + %lu\n",
-        //        x, y, z, *list_ptr, old, list_val);
-    }
+    // // Only do work if still within range
+    // if (x < width && y < height / 2) {
+    //     // Simply sum this and the next element. Make sure to stay in bounds
+    //     size_t half_N = ceil(height / 2.0);
+    //     unsigned long* list_ptr = (unsigned long*) ((char*) list + y * list_pitch) + x;
+    //     unsigned long list_val = *((unsigned long*) ((char*) list + (y + half_N) * list_pitch) + x);
+    //     *list_ptr += list_val;
+    // }
 }
 
 
@@ -354,9 +353,9 @@ void reduction_3D() {
     srand(time(NULL));
 
     // Initialize a 2D matrix
-    size_t W = 500;
-    size_t H = 500;
-    size_t D = 5000;
+    size_t W = 5;
+    size_t H = 5;
+    size_t D = 5;
     int max = 50;
     unsigned long to_reduce[W * H * D];
     for (size_t i = 0; i < W * H * D; i++) {
@@ -370,22 +369,12 @@ void reduction_3D() {
     unsigned long correct[W * H];
     for (size_t x = 0; x < W; x++) {
         for (size_t y = 0; y < H; y++) {
-            correct[y * W + x] = 0;
+            correct[x * y] = 0;
             for (size_t z = 0; z < D; z++) {
-                correct[y * W + x] += to_reduce[z * W * H + y * W + x];
+                correct[x * y] += to_reduce[z * W * H + y * W + x];
             }
         }
     }
-
-    // for (size_t y = 0; y < H; y++) {
-    //     printf("[");
-    //     for (size_t x = 0; x < W; x++) {
-    //         if (x > 0) { printf(", "); }
-    //         printf("%04lu", correct[y * W + x]);
-    //     }
-    //     printf("]\n");
-    // }
-    // printf("\n");
 
     gettimeofday(&stop, NULL);
 
@@ -407,20 +396,20 @@ void reduction_3D() {
 
     gettimeofday(&start, NULL);
 
-    // unsigned long debug[W * H * D];
-    // cudaMemcpy2D(debug, sizeof(unsigned long) * W, to_reduce_gpu, to_reduce_gpu_pitch, sizeof(unsigned long) * W, H * D, cudaMemcpyDeviceToHost);
-    // for (size_t z = 0; z < D; z++) {
-    //     printf("(%lu/%lu)\n", z + 1, D);
-    //     for (size_t y = 0; y < H; y++) {
-    //         printf("[");
-    //         for (size_t x = 0; x < W; x++) {
-    //             if (x > 0) { printf(", "); }
-    //             printf("%04lu", debug[z * W * H + y * W + x]);
-    //         }
-    //         printf("]\n");
-    //     }
-    // }
-    // printf("\n");
+    unsigned long debug[W * H * D];
+    cudaMemcpy2D(debug, sizeof(unsigned long) * W, to_reduce_gpu, to_reduce_gpu_pitch, sizeof(unsigned long) * W, H * D, cudaMemcpyDeviceToHost);
+    for (size_t z = 0; z < D; z++) {
+        printf("(%lu/%lu)\n", z, D);
+        for (size_t y = 0; y < H; y++) {
+            printf("[");
+            for (size_t x = 0; x < W; x++) {
+                if (x > 0) { printf(", "); }
+                printf("%04lu", debug[z * W * H + y * W + x]);
+            }
+            printf("]\n");
+        }
+    }
+    printf("\n");
 
     // Time to invoke the kernel as many times as needed
     int threads_per_block = 32;
@@ -434,19 +423,19 @@ void reduction_3D() {
         );
         cudaSafe();
 
-        // cudaMemcpy2D(debug, sizeof(unsigned long) * W, to_reduce_gpu, to_reduce_gpu_pitch, sizeof(unsigned long) * W, H * D, cudaMemcpyDeviceToHost);
-        // for (size_t z = 0; z < D; z++) {
-        //     printf("(%lu/%lu)\n", z + 1, D);
-        //     for (size_t y = 0; y < H; y++) {
-        //         printf("[");
-        //         for (size_t x = 0; x < W; x++) {
-        //             if (x > 0) { printf(", "); }
-        //             printf("%04lu", debug[z * W * H + y * W + x]);
-        //         }
-        //         printf("]\n");
-        //     }
-        // }
-        // printf("\n");
+        cudaMemcpy2D(debug, sizeof(unsigned long) * W, to_reduce_gpu, to_reduce_gpu_pitch, sizeof(unsigned long) * W, H * D, cudaMemcpyDeviceToHost);
+        for (size_t z = 0; z < D; z++) {
+            printf("(%lu/%lu)\n", z, D);
+            for (size_t y = 0; y < H; y++) {
+                printf("[");
+                for (size_t x = 0; x < W; x++) {
+                    if (x > 0) { printf(", "); }
+                    printf("%04lu", debug[z * W * H + y * W + x]);
+                }
+                printf("]\n");
+            }
+        }
+        printf("\n");
 
         // Don't forget to decrease to_do
         to_do = ceil(to_do / 2.0);
@@ -491,3 +480,4 @@ int main() {
     printf("\n\n\n");
     return 0;
 }
+
