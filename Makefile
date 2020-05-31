@@ -63,12 +63,9 @@ $(OBJ)/NeuralNetwork_%_aux.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.cu | dirs
 $(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
-$(OBJ)/Support.a: $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o | dirs
-	ar cr $@ $(OBJ)/Functions.o $(OBJ)/Array.o $(OBJ)/Matrix.o
-
-$(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
+$(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Array.o | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
-$(BIN)/digits_cuda.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/NeuralNetwork_${VARIATION}_aux.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
+$(BIN)/digits_cuda.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/NeuralNetwork_${VARIATION}_aux.o $(OBJ)/Digits.o $(OBJ)/Array.o | dirs
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs

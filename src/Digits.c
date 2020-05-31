@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   5/23/2020, 5:19:37 PM
+ *   5/31/2020, 9:26:24 PM
  * Auto updated?
  *   Yes
  *
@@ -24,7 +24,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-#include "Functions.h"
+#include "Array.h"
 #include "NeuralNetwork.h"
 
 /* If left uncommented, reports and writes the costs. */
@@ -43,10 +43,11 @@ static unsigned int col = 1;
 
 /***** TOOLS *****/
 
-/* Deallocates a list of arrays, up to the number of samples given. */
-void destroy_array_list(size_t last_sample, array** list) {
-    for (size_t i = 0; i <= last_sample; i++) {
-        destroy_array(list[i]);
+/* Deallocates a list of arrays, up to the sfirst NULL it encounters. */
+void destroy_array_list(size_t n_samples, double** list) {
+    for (size_t i = 0; i < n_samples; i++) {
+        if (list[i] == NULL) { break; }
+        free(list[i]);
     }
     free(list);
 }
@@ -189,8 +190,8 @@ int main(int argc, char** argv) {
     int n_samples = -1;
     int n_classes = -1;
     int sample = -1;
-    array** digits = NULL;
-    array** classes = NULL;
+    double** digits = NULL;
+    double** classes = NULL;
 
     // Loop through all elements (numbers enclosed in ',')
     int num;
@@ -201,8 +202,12 @@ int main(int argc, char** argv) {
         if (i == 0) {
             // Fill the number of samples first so we can allocate the array
             n_samples = num;
-            digits = malloc(sizeof(array*) * n_samples);
-            classes = malloc(sizeof(array*) * n_samples);
+            digits = malloc(sizeof(double*) * n_samples);
+            classes = malloc(sizeof(double*) * n_samples);
+            for (int i = 0; i < n_samples; i++) {
+                digits[i] = NULL;
+                classes[i] = NULL;
+            }
         } else if (i == 1) {
             // Fill in the number of classes for the output layer
             n_classes = num;
@@ -211,40 +216,40 @@ int main(int argc, char** argv) {
             sample++;
             // Make sure the num is within range
             if (num >= n_classes) {
-                destroy_array_list(sample, digits);
-                destroy_array_list(sample, classes);
+                destroy_array_list(n_samples, digits);
+                destroy_array_list(n_samples, classes);
                 fclose(data);
                 fprintf(stderr, "ERROR: (%u:%u): given class is too high (%d > %d)\n",
                         row, col, num, n_classes - 1);
                 return -1;
             }
             // Create an empty array in the digits class
-            digits[sample] = create_empty_array(64);
+            digits[sample] = malloc(sizeof(double) * 64);
 
             // Allocate an output array and set the correct index to 1
-            classes[sample] = create_empty_array(n_classes);
+            classes[sample] = malloc(sizeof(double) * n_classes);
             for (int i = 0; i < n_classes; i++) {
-                classes[sample]->d[i] = i == num ? 1.0 : 0.0;
+                classes[sample][i] = i == num ? 1.0 : 0.0;
             }
         } else {
             // One of the 64 datapoints: fill in the matrix
             if (num > 16) {
-                destroy_array_list(sample, digits);
-                destroy_array_list(sample, classes);
+                destroy_array_list(n_samples, digits);
+                destroy_array_list(n_samples, classes);
                 fclose(data);
                 fprintf(stderr, "ERROR: (%u:%u): given datapoint is too high for pixel value (%d > 16)\n",
                         row, col, num);
                 return -1;
             }
-            digits[sample]->d[i_row - 1] = num;
+            digits[sample][i_row - 1] = num;
         }
         
         status = get_num(data, &num);
     }
     // Stop if an error occured
     if (status < 0) {
-        destroy_array_list(sample, digits);
-        destroy_array_list(sample, classes);
+        destroy_array_list(n_samples, digits);
+        destroy_array_list(n_samples, classes);
         fclose(data);
         return -1;
     }
@@ -257,7 +262,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     if (n_classes == -1) {
-        destroy_array_list(-1, digits);
+        free(digits);
         fclose(data);
         fprintf(stderr, "ERROR: (%u:%u): number of classes not specified\n",
                 row, col);
@@ -266,15 +271,15 @@ int main(int argc, char** argv) {
 
     // Throw a complaint about too few data if that's the case
     if (sample != n_samples - 1) {
-        destroy_array_list(sample, digits);
-        destroy_array_list(sample, classes);
+        destroy_array_list(n_samples, digits);
+        destroy_array_list(n_samples, classes);
         fclose(data);
         fprintf(stderr, "ERROR: (%u:%u): not enough samples provided (got %d, expected %d)\n",
                 row, col, sample + 1, n_samples);
         return -1;
     } else if ((i - 2) % 65 != 0) {
-        destroy_array_list(sample, digits);
-        destroy_array_list(sample, classes);
+        destroy_array_list(n_samples, digits);
+        destroy_array_list(n_samples, classes);
         fclose(data);
         fprintf(stderr, "ERROR: (%u:%u): not enough datapoints provided for last sample (got %d, expected 64)\n",
                 row, col, (i - 2) % 65);
@@ -295,10 +300,10 @@ int main(int argc, char** argv) {
     #endif
     size_t training_size = n_samples * TRAIN_RATIO;
     size_t testing_size = n_samples - training_size;
-    array** digits_train = digits;
-    array** digits_test = digits + training_size;
-    array** classes_train = classes;
-    array** classes_test = classes + training_size;
+    double** digits_train = digits;
+    double** digits_test = digits + training_size;
+    double** classes_train = classes;
+    double** classes_test = classes + training_size;
 
     // Create a new neural network
     #ifndef BENCHMARK
@@ -314,7 +319,7 @@ int main(int argc, char** argv) {
     printf("  Training...\n");
     gettimeofday(&start_ms, NULL);
     start = clock();
-    array* costs = nn_train_costs(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
+    array* costs = nn_train_costs(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS);
     end = clock();
     gettimeofday(&end_ms, NULL);
     printf("  Time taken: %f seconds / CPU time taken: %f seconds\n",
@@ -329,7 +334,7 @@ int main(int argc, char** argv) {
     #endif
     gettimeofday(&start_ms, NULL);
     start = clock();
-    nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS, sigmoid, dydx_sigmoid);
+    nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS);
     end = clock();
     gettimeofday(&end_ms, NULL);
     #ifdef BENCHMARK
@@ -348,17 +353,15 @@ int main(int argc, char** argv) {
     #endif
 
     // Test the network
-    array** outputs = malloc(sizeof(array*) * testing_size);
-    for (size_t i = 0; i < testing_size; i++) {
-        outputs[i] = create_empty_array(n_classes);
-    }
-    nn_forward(nn, testing_size, outputs, digits_test, sigmoid);
+    size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
+    double outputs[testing_size * last_nodes];
+    nn_forward(nn, testing_size, outputs, digits_test);
 
     // Flatten the results
-    flatten_output(testing_size, outputs);
+    flatten_output(testing_size, last_nodes, outputs);
 
     // Compute the accuracy
-    double accuracy = compute_accuracy(testing_size, outputs, classes_test);
+    double accuracy = compute_accuracy(testing_size, last_nodes, outputs, classes_test);
     #ifndef BENCHMARK
     printf("  Network accuracy: %f\n\n", accuracy);
     #endif
@@ -367,9 +370,8 @@ int main(int argc, char** argv) {
     #ifndef BENCHMARK
     printf("Cleaning up...\n");
     #endif
-    destroy_array_list(sample, digits);
-    destroy_array_list(sample, classes);
-    destroy_array_list(testing_size - 1, outputs);
+    destroy_array_list(n_samples, digits);
+    destroy_array_list(n_samples, classes);
     #ifdef PLOT
     destroy_array(costs);
     #endif

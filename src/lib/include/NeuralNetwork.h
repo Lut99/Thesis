@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/25/2020, 10:14:47 PM
+ *   5/31/2020, 8:39:57 PM
  * Auto updated?
  *   Yes
  *
@@ -19,7 +19,6 @@
 #define _NEURAL_NETWORK_H
 
 #include "Array.h"
-#include "Matrix.h"
 
 
 /* Defines the NeuralNetwork. */
@@ -31,10 +30,10 @@ typedef struct NEURALNET {
 
     /* The number of weights in the neural network. Equal to the number of layers minus 1. */
     size_t n_weights;
-    /* List of biases for each layer, save the output layer. */
-    array** biases;
+    /* List of biases for each layer, save the output layer (each one has size this_layer_nodes). */
+    double** biases;
     /* List of weights for each layer (each one has size this_layer_nodes x next_layer_nodes) */
-    matrix** weights;
+    double** weights;
 } neural_net;
 
 
@@ -51,34 +50,27 @@ void destroy_nn(neural_net* nn);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-/* Computes a forward pass through the network for the inputs of a single sample using the given activation function. The outputs for each layer are returned in the given output list. */
-void nn_activate(neural_net* nn, array** outputs, const array* inputs, double (*activation_function)(double));
-
 /* Computes a forward pass through the network for n_samples using the given activation function. The outputs of the final layer for each sample is returned in the given output list. */
-void nn_forward(neural_net* nn, size_t n_samples, array** outputs, array** inputs, double (*activation_function)(double));
-
-/* Backpropagates through the network to update the weights. The learning rate is equal to eta, as sometimes seen in tutorials, and determines the speed of the gradient descent. While the cost function is fixed (Mean Square Error), the derivative of the activation function is provided via a function pointer. Finally, the scratchpad argument is a list of at least the maximum number of nodes on the layers of the neural network to use as re-usable temporary array that needn't be re-allocated all the time. */
-void nn_backpropagate(neural_net* nn, array** outputs, const array* expected, double learning_rate, double (*dydx_act)(double), array* scratchpad);
+void nn_forward(neural_net* nn, size_t n_samples, double* outputs, double** inputs);
 
 /* Performs training for n_iterations and returns the costs. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
-array* nn_train_costs(neural_net* nn, size_t n_samples, array** inputs, array** expected, double learning_rate, size_t max_iterations, double (*act)(double), double (*dydx_act)(double));
+array* nn_train_costs(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t max_iterations);
 
 /* Performs training for n_iterations. Like nn_forward, it is designed to take in all the samples in a training set at once and parse them. The learning rate, also called eta, determines how fast the network learns which can be tweaked to avoid overfitting. The activiation function is given in act, and its derivative in dydx_act. */
-void nn_train(neural_net* nn, size_t n_samples, array** inputs, array** expected, double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double));
+void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations);
 
 
 
 /***** VALIDATION TOOLS *****/
 
-/* Flattens given list of outputs so that only the highest value of each output is set to 1, the rest to 0. */
-void flatten_output(size_t n_samples, array** outputs);
+/* For a given 2D array outputs (n_samples x last_nodes), flatting it so that the highest element each row is set to 1 and the others to 0. */
+void flatten_output(size_t n_samples, size_t last_nodes, double* outputs) ;
 
-/* Round the output to the nearest integer. */
-void round_output(size_t n_samples, array** outputs);
+/* For a given 2D array outputs (n_samples x last_nodes), rounds the value of each element */
+void round_output(size_t n_samples, size_t last_nodes, double* outputs);
 
-/* Compares given output with given expected output. Returns an accuracy measure of how many samples were (almost) equal divided by the total amount of samples. */
-double compute_accuracy(size_t n_samples, array** outputs, array** expected);
-
+/* For a given 2D array outputs (n_samples x last_nodes) and a list-of-lists expected (n_samples x last_nodes), compares given output of each sample with given expected output of that sample and returns the accuracy measure. */
+double compute_accuracy(size_t n_samples, size_t last_nodes, double* outputs, double** expected);
 
 
 /***** OTHER TOOLS *****/
