@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   5/23/2020, 5:27:42 PM
+ *   5/31/2020, 11:18:30 PM
  * Auto updated?
  *   Yes
  *
@@ -431,9 +431,6 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
 }
 
 void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
-    // Set the number of threads to be used
-    omp_set_num_threads(omp_get_num_procs());
-
     // Initialize the temporary deltas so each thread has one
     array* deltas[omp_get_num_procs()];
     for (int i = 0; i < omp_get_num_procs(); i++) {
