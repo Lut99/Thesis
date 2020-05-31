@@ -136,7 +136,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     cpus = []
     gpus = []
     for variation in variations:
-        if variation.lower() == "sequential":
+        if "seq" in variation.lower():
             seqs.append(variation)
         if "cpu" in variation.lower():
             cpus.append(variation)
