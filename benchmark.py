@@ -135,19 +135,30 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     seqs = []
     cpus = []
     gpus = []
+    unks = []
     for variation in variations:
-        if "seq" in variation.lower():
+        is_seq = "seq" in variation.lower()
+        is_cpu = "cpu" in variation.lower()
+        is_gpu = "gpu" in variation.lower()
+
+        if is_seq:
             seqs.append(variation)
-        if "cpu" in variation.lower():
+        if is_cpu:
             cpus.append(variation)
-        if "gpu" in variation.lower():
+        if is_gpu:
             gpus.append(variation)
+        if not is_seq and not is_cpu and not is_gpu:
+            # Mark as unknown
+            unks.append(variation)
+        
     if len(seqs) > 0:
         print(f" > Found {len(seqs)} variation(s) that are sequentially implemented")
     if len(cpus) > 0:
         print(f" > Found {len(cpus)} variation(s) that are optimised for the CPU")
     if len(gpus) > 0:
         print(f" > Found {len(gpus)} variation(s) that are optimised for the GPU")
+    if (len(unks) > 0):
+        print(f"\nWARNING: Found {len(unks)} variation(s) that cannot be identified: {unks}\n")
     print("Done\n")
 
     # First, benchmark the sequential ones
