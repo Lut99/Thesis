@@ -19,6 +19,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include "NeuralNetwork.h"
 
@@ -416,31 +417,49 @@ array* nn_train_costs(neural_net* nn, size_t n_samples, array* inputs[n_samples]
     return costs;
 }
 
-void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array* expected[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
-    // Initialize the scratchpad memory to the correct size
-    array* deltas = create_empty_array(max(nn->n_layers, nn->nodes_per_layer));
-    
-    // Create a list that is used to store intermediate outputs. Note that we create no create_empty_array
-    //   for the first element, as this is simply a reference to the input.
-    array* layer_outputs[n_samples][nn->n_layers];
+void nn_train(neural_net* nn, size_t n_samples, array* inputs_arr[n_samples], array* expected_arr[n_samples], double learning_rate, size_t n_iterations, double (*act)(double), double (*dydx_act)(double)) {
+    // Link the expected double lists directly from the given arrays
+    double* expected[n_samples];
     for (size_t s = 0; s < n_samples; s++) {
+        expected[s] = expected_arr[s]->d;
+    }
+
+    // Also obtain links to all biases / matrices
+    double* biases[nn->n_weights];
+    double* weights[nn->n_weights];
+    for (size_t l = 0; l < nn->n_weights; l++) {
+        biases[l] = nn->biases[l]->d;
+        weights[l] = nn->weights[l]->data;
+    }
+    
+    // Initialize the temporary delta memory to the correct size
+    double* deltas = malloc(sizeof(double) * max(nn->n_layers, nn->nodes_per_layer));
+
+    // Create a list that is used to store intermediate outputs. The first input layer (=first column)
+    //   is linked and not copied to the input data
+    double* layer_outputs[n_samples][nn->n_layers];
+    for (size_t s = 0; s < n_samples; s++) {
+        // Link the input layer
+        layer_outputs[s][0] = inputs_arr[s]->d;
+        
+        // Allocate arrays for the other layers
         for (size_t l = 1; l < nn->n_layers; l++) {
-            layer_outputs[s][l] = create_empty_array(nn->nodes_per_layer[l]);
+            layer_outputs[s][l] = malloc(sizeof(double) * nn->nodes_per_layer[l]);
         }
     }
 
     // Create the delta_biases and delta_weights arrays / matrices
-    array* delta_biases[nn->n_layers - 1];
-    matrix* delta_weights[nn->n_layers - 1];
-    for (size_t l = 0; l < nn->n_layers - 1; l++) {
-        delta_biases[l] = create_empty_array(nn->biases[l]->size);
-        delta_weights[l] = create_empty_matrix(nn->weights[l]->rows, nn->weights[l]->cols);
+    double* delta_biases[nn->n_layers - 1];
+    double* delta_weights[nn->n_layers - 1];
+    for(size_t l = 0; l < nn->n_layers - 1; l++) {
+        delta_biases[l] = malloc(sizeof(double) * nn->biases[l]->size);
+        delta_weights[l] = malloc(sizeof(double) * nn->weights[l]->rows * nn->weights[l]->cols);
 
         // Fill with zeros
         for (size_t n = 0; n < nn->nodes_per_layer[l + 1]; n++) {
-            delta_biases[l]->d[n] = 0;
+            delta_biases[l][n] = 0;
             for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l]; prev_n++) {
-                INDEX(delta_weights[l], prev_n, n) = 0;
+                delta_weights[l][prev_n * nn->nodes_per_layer[l + 1] + n] = 0;
             }
         }
     }
@@ -452,29 +471,30 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // Loop through all samples to compute the forward cost
         for (size_t s = 0; s < n_samples; s++) {
             // Perform a forward pass through the network to be able to say something about the performance
-            array** sample_outputs = layer_outputs[s];
-            
-            // Copy the inputs to the outputs array
-            sample_outputs[0] = inputs[s];
+
+            // sample_outputs is a 2D flattened array for this layer
+            double** sample_outputs = layer_outputs[s];
 
             // Iterate over each layer to feedforward through the network
             for (size_t l = 1; l < nn->n_layers; l++) {
                 // Get some references to the bias list, weight matrix and outputs of the previous and this layer
-                array* bias = nn->biases[l - 1];
-                matrix* weight = nn->weights[l - 1];
-                array* prev_output = sample_outputs[l - 1];
-                array* output = sample_outputs[l];
+                double* bias = biases[l - 1];
+                double* weight = weights[l - 1];
+                double* prev_output = sample_outputs[l - 1];
+                double* output = sample_outputs[l];
 
                 // Compute the activation for each node on this layer
-                for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
+                size_t this_nodes = nn->nodes_per_layer[l];
+                size_t prev_nodes = nn->nodes_per_layer[l - 1];
+                for (size_t n = 0; n < this_nodes; n++) {
                     // Sum the weighted inputs for this node
-                    double z = bias->d[n];
-                    for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-                        z += prev_output->d[prev_n] * INDEX(weight, prev_n, n);
+                    double z = bias[n];
+                    for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                        z += prev_output[prev_n] * weight[prev_n * this_nodes + n];
                     }
 
                     // Run the activation function over this input and store it in the output
-                    output->d[n] = act(z);
+                    output[n] = 1 / (1 + exp(-z));
                 }
             }
         }
@@ -484,12 +504,12 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
         // Loop through all samples to compute the backward cost
         for (size_t s = 0; s < n_samples; s++) {
             // Backpropagate the error from the last layer to the first.
-            array** sample_outputs = layer_outputs[s];
-            array* sample_expected = expected[s];
+            double** sample_outputs = layer_outputs[s];
+            double* sample_expected = expected[s];
             for (size_t l = nn->n_layers - 1; l > 0; l--) {
                 // Set shortcuts to some values used both in delta computing and weight / bias updating
                 size_t this_nodes = nn->nodes_per_layer[l];
-                array* output = sample_outputs[l];
+                double* output = sample_outputs[l];
 
                 // Compute the deltas of the correct layer
                 if (l == nn->n_layers - 1) {
@@ -497,68 +517,87 @@ void nn_train(neural_net* nn, size_t n_samples, array* inputs[n_samples], array*
 
                     // Loop through all nodes in this layer to compute their deltas
                     for (size_t n = 0; n < this_nodes; n++) {
-                        deltas->d[n] = (sample_expected->d[n] - output->d[n]) * dydx_act(output->d[n]);
+                        double output_val = output[n];
+                        deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
                     }
                 } else {
                     // Deltas for any hidden layer
                     
                     // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                     size_t next_nodes = nn->nodes_per_layer[l + 1];
-                    matrix* weight_next = nn->weights[l];
+                    double* weight_next = weights[l];
                     for (size_t n = 0; n < this_nodes; n++) {
                         // Take the weighted sum of all connection of that node with this layer
                         double error = 0;
                         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                            error += deltas->d[next_n] * INDEX(weight_next, n, next_n);
+                            error += deltas[next_n] * weight_next[n * next_nodes + next_n];
                         }
 
                         // Multiply the error with the derivative of the activation function to find the result
-                        deltas->d[n] = error * dydx_act(output->d[n]);
+                        double output_val = output[n];
+                        deltas[n] = error * output_val * (1 - output_val);
                     }
                 }
 
                 // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
                 size_t prev_nodes = nn->nodes_per_layer[l - 1];
-                array* delta_bias = delta_biases[l - 1];
-                matrix* delta_weight = delta_weights[l - 1];
-                array* prev_output = sample_outputs[l - 1];
+                double* delta_bias = delta_biases[l - 1];
+                double* delta_weight = delta_weights[l - 1];
+                double* prev_output = sample_outputs[l - 1];
 
-                // Updated all biases and weights for this layer
+                // Add all deltas as delta_biases for this layer
                 for (size_t n = 0; n < this_nodes; n++) {
-                    delta_bias->d[n] +=  deltas->d[n];
-                    for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-                        INDEX(delta_weight, prev_n, n) += prev_output->d[prev_n] * deltas->d[n];
+                    delta_bias[n] += deltas[n];
+                }
+                // Same for all the weights, except we compute the delta_weights first
+                for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                    for (size_t n = 0; n < this_nodes; n++) {
+                        delta_weight[prev_n * this_nodes + n] += prev_output[prev_n] * deltas[n];
                     }
                 }
             }
         }
 
         // Actually update the weights, and reset the delta updates to 0 for next iteration
-        for (size_t l = 1; l < nn->n_layers; l++) {
-            for (size_t n = 0; n < nn->nodes_per_layer[l]; n++) {
-                nn->biases[l - 1]->d[n] += delta_biases[l - 1]->d[n] * learning_rate;
-                delta_biases[l - 1]->d[n] = 0;
-                for (size_t prev_n = 0; prev_n < nn->nodes_per_layer[l - 1]; prev_n++) {
-                    INDEX(nn->weights[l - 1], prev_n, n) += INDEX(delta_weights[l - 1], prev_n, n) * learning_rate;
-                    INDEX(delta_weights[l - 1], prev_n, n) = 0;
-                }
-            }   
+        for (size_t l = 0; l < nn->n_weights; l++) {
+            double* bias = biases[l];
+            double* delta_bias = delta_biases[l];
+            double* weight = weights[l];
+            double* delta_weight = delta_weights[l];
+
+            // Update the biases & reset delta_biases
+            size_t this_nodes = nn->nodes_per_layer[l + 1];
+            for (size_t n = 0; n < this_nodes; n++) {
+                bias[n] += delta_bias[n] * learning_rate;
+                delta_bias[n] = 0;
+            }
+
+            // Update the weights & reset delta_weights
+            size_t prev_nodes = nn->nodes_per_layer[l];
+            for (size_t i = 0; i < this_nodes * prev_nodes; i++) {
+                weight[i] += delta_weight[i] * learning_rate;
+                delta_weight[i] = 0;
+            }
         }
     }
 
     // Cleanup
-    // Destroy the intermediate outputs - but not the first one, as this is simply copied by pointer from the input list
+
+    // Free the delta biases / weights
+    for(size_t l = 0; l < nn->n_layers - 1; l++) {
+        free(delta_biases[l]);
+        free(delta_weights[l]);
+    }
+
+    // Free the layer_outputs (skip the first, as these merely link the input rather than copy 'em)
     for (size_t s = 0; s < n_samples; s++) {
         for (size_t l = 1; l < nn->n_layers; l++) {
-            destroy_array(layer_outputs[s][l]);
+            free(layer_outputs[s][l]);
         }
     }
-    // Destroy the delta_weights
-    for (size_t l = 0; l < nn->n_layers - 1; l++) {
-        destroy_array(delta_biases[l]);
-        destroy_matrix(delta_weights[l]);
-    }
-    destroy_array(deltas);
+
+    // Cleanup the deltas
+    free(deltas);
 }
 
 
