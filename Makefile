@@ -40,7 +40,7 @@ else
 VARIATION=sequential
 endif
 
-.PHONY: default dirs digits tests plot all
+.PHONY: default dirs digits testdata tests plot all
 default: all
 
 $(BIN):
@@ -63,11 +63,16 @@ $(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.cu | dirs
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ --device-c $< $(EXT_LIBS)
 $(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+$(OBJ)/TestData.o: $(SRC)/TestData.c | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
 
 $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 $(BIN)/digits_cuda.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/NeuralNetwork_${VARIATION}_aux.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
+
+$(BIN)/testdata.out: $(OBJ)/TestData.o $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Support.a | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
@@ -76,6 +81,8 @@ digits: $(BIN)/digits.out
 
 digits_cuda: $(BIN)/digits_cuda.out
 	mv $(BIN)/digits_cuda.out $(BIN)/digits.out
+
+testdata: $(BIN)/testdata.out
 
 playground: $(TST_BIN)/playground.out
 
@@ -99,7 +106,7 @@ tests: test_matrix test_nn test_array
 plot:
 	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""
 
-all: digits tests plot playground
+all: digits testdata tests plot playground
 
 clean:
 	rm -f $(BIN)/*.out
