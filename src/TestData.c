@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/2/2020, 5:09:39 PM
+ *   6/2/2020, 5:20:11 PM
  * Auto updated?
  *   Yes
  *
@@ -77,29 +77,22 @@ void fprint_ptrlist(FILE* file, size_t rows, size_t cols, double** arr) {
  *   @param n_classes number of classes
  *   @param classes the list of classes itself
  */
-void fprint_ptrlist(FILE* file, size_t rows, size_t cols, double** arr) {
-    char buffer[128];
-    for (size_t y = 0; y < rows; y++) {
-        double* row = arr[y];
-        fprintf(file, "[");
-        for (size_t x = 0; x < cols; x++) {
-            if (x > 0) { fprintf(file, ", "); }
-
-            // Create a string from the value
-            sprintf(buffer, "%.3f", row[x]);
-
-            // Check the length
-            size_t len = strlen(buffer);
-            // Pad some spaces
-            for (size_t i = len; i < 8; i++) {
-                fprintf(file, " ");
+void fprint_classes(FILE* file, size_t n_samples, size_t n_classes, double** classes) {
+    fprintf(file, "[");
+    for (size_t s = 0; s < n_samples; s++) {
+        double* sample_output = classes[s];
+        size_t highest_value = sample_output[0];
+        size_t highest_index = 0;
+        for (size_t n = 1; n < n_classes; n++) {
+            if (sample_output[n] > highest_value) {
+                highest_index = n;
+                highest_value = sample_output[n];
             }
-
-            // Print the string
-            fprintf(file, "%s", buffer);
         }
-        fprintf(file, "]\n");
+        if (s > 0) { fprintf(file, ", "); }
+        fprintf(file, "%lu", highest_index);
     }
+    fprintf(file, "]");
 }
 
 
