@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/2/2020, 5:20:11 PM
+ *   6/2/2020, 11:34:33 PM
  * Auto updated?
  *   Yes
  *
@@ -19,15 +19,58 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 #include <string.h>
+#include <getopt.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "NeuralNetwork.h"
 #include "Array.h"
 
 
+/***** DEFAULT VALUES *****/
+
+/* Converts the expanded macros to string. */
+#define STR_IMPL_(x) #x
+/* Is able to convert macros to their string counterpart. */
+#define STR(x) STR_IMPL_(x)
+
+#define DEFAULT_EPOCHS 20000
+#define DEFAULT_LEARNING_RATE 0.005
+#define DEFAULT_N_SAMPLES 10000
+#define DEFAULT_SAMPLE_SIZE 64
+#define DEFAULT_N_CLASSES 10
+#define DEFAULT_N_HIDDEN_LAYERS 1
+static size_t DEFAULT_NODES_PER_HIDDEN_LAYER[DEFAULT_N_HIDDEN_LAYERS] = {20};
+#define DEFAULT_DATA_MIN -3.0
+#define DEFAULT_DATA_MAX 3.0
+
+
+/***** STRUCT DEFINITIONS *****/
+
+/* The Options struct stores all options. */
+typedef struct OPTIONS {
+    unsigned int epochs;
+    double learning_rate;
+
+    size_t n_samples;
+    size_t sample_size;
+    size_t n_classes;
+
+    size_t n_hidden_layers;
+    size_t* nodes_per_hidden_layer;
+
+    double data_min;
+    double data_max;
+} options;
+
+
 /***** HELPER FUNCTIONS *****/
 
 /* Cleans given list of pointers, also free'ing the pointers (except when those pointers are NULL).
+ *
+ * Parameters:
  *   @param length length of the given list
  *   @param list the list itself
  */
@@ -40,19 +83,37 @@ void clean(size_t length, double** list) {
     free(list);
 }
 
+/* Prints given 1D array to the given file
+ *
+ * Parameters:
+ *   @param file file to print to
+ *   @param size number of elements in the list
+ *   @param data the list itself
+ */
+void fprint_array(FILE* file, size_t size, size_t* data) {
+    fprintf(file, "[");
+    for (size_t i = 0; i < size; i++) {
+        if (i > 0) { fprintf(file, ","); }
+        fprintf(file, "%lu", data[i]);
+    }
+    fprintf(file, "]");
+}
+
 /* Prints given 2D array of pointers to the giben file
+ *
+ * Parameters:
  *   @param file file to print to
  *   @param rows number of rows
  *   @param cols number of columns
  *   @param data the list itself
  */
-void fprint_ptrlist(FILE* file, size_t rows, size_t cols, double** arr) {
+void fprint_ptrlist(FILE* file, size_t rows, size_t cols, double** data) {
     char buffer[128];
     for (size_t y = 0; y < rows; y++) {
-        double* row = arr[y];
+        double* row = data[y];
         fprintf(file, "[");
         for (size_t x = 0; x < cols; x++) {
-            if (x > 0) { fprintf(file, ", "); }
+            if (x > 0) { fprintf(file, ","); }
 
             // Create a string from the value
             sprintf(buffer, "%.3f", row[x]);
@@ -72,6 +133,8 @@ void fprint_ptrlist(FILE* file, size_t rows, size_t cols, double** arr) {
 }
 
 /* Prints given list of classes by simply printing the indices of the highest value as a 1D-list.
+ *
+ * Parameters:
  *   @param file file to print to
  *   @param n_samples number of samples
  *   @param n_classes number of classes
@@ -89,10 +152,124 @@ void fprint_classes(FILE* file, size_t n_samples, size_t n_classes, double** cla
                 highest_value = sample_output[n];
             }
         }
-        if (s > 0) { fprintf(file, ", "); }
+        if (s > 0) { fprintf(file, ","); }
         fprintf(file, "%lu", highest_index);
     }
     fprintf(file, "]");
+}
+
+/* Converts given text to an unsigned long. Note that it prints an error message and exists the program whenever an error occurs.
+ * 
+ * Parameters:
+ *   @param str the zero-terminated string to convert to an unsigned long
+ */
+unsigned long str_to_ulong(char opt, char* str) {
+    char* end;
+    unsigned long to_ret = strtoul(str, &end, 10);
+    
+    // Error if we encountered an illegal character
+    if (*end == '\0') {
+        fprintf(stderr, "ERROR: Option '%c': cannot convert \"%s\" to an unsigned long.\n", opt, str);
+        exit(EXIT_FAILURE);
+    }
+
+    // Also stop if we are out of range
+    if (to_ret == ULONG_MAX && errno == ERANGE) {
+        fprintf(stderr, "ERROR: Option '%c': value \"%s\" is out of range for unsigned long.\n", opt, str);
+        exit(EXIT_FAILURE);
+    }
+
+    // Otherwise, return the value
+    return to_ret;
+}
+
+/* Prints a usage string to the given file.
+ *
+ * Parameters:
+ *   @param file the file to write to
+ *   @param name the name of the program that we are running
+ */
+void print_usage(FILE* file, char* name) {
+    fprintf(file, "Usage: %s [-h] [-SsceH <ulong>] [-Ddl <float>] [-N <list>] [<var_args>]\n", name);
+}
+
+/* Prints a help string to the given file.
+ *
+ * Parameters:
+ *   @param file the file to write to
+ *   @param name the name of the program that we are running
+ */
+void print_help(FILE* file, char* name) {
+    fprintf(file, "\n");
+    fprintf(file, "Usage:\n    %s [-h] [-SsceH <ulong>] [-Ddl <float>] [-N <list>] [<var_args>]\n", name);
+
+    fprintf(file, "\nDataset options:\n");
+    fprintf(file, "  -S <ulong>\tTthe number of samples generated in the dataset (default: " STR(DEFAULT_N_SAMPLES) ")\n");
+    fprintf(file, "  -s <ulong>\tTthe number of elements for each sample in the dataset (default: " STR(DEFAULT_SAMPLE_SIZE) ")\n");
+    fprintf(file,          "\t\tNote that the first layer of the neural network has this many nodes.\n");
+    fprintf(file, "  -c <ulong>\tThe number of classes that the generated dataset can take (default: " STR(DEFAULT_N_CLASSES) ")\n");
+    fprintf(file,          "\t\tNote that the last layer of the neural network has this many nodes.\n");
+    fprintf(file, "  -D <float>\tThe upperbound value (exclusive) for the random values in the dataset (default: " STR(DEFAULT_DATA_MAX) ")\n");
+    fprintf(file, "  -d <float>\tThe lowerbound value (inclusive) for the random values in the dataset (default: " STR(DEFAULT_DATA_MIN) ")\n");
+    
+    fprintf(file, "\nNeural network options:\n");
+    fprintf(file, "  -e <ulong>\tThe number of epochs for the neural network (default: " STR(DEFAULT_EPOCHS) ")\n");
+    fprintf(file, "  -l <float>\tThe learning rate for the neural network (default: " STR(DEFAULT_LEARNING_RATE) ")\n");
+    fprintf(file, "  -H <ulong>\tThe number of hidden layers in the neural network (default: " STR(DEFAULT_N_HIDDEN_LAYERS) ")\n");
+    fprintf(file, "  -N <list>\tThe number of nodes per hidden layer. Should be a comma-separated list (without whitespaces).\n");
+    fprintf(file,          "\t\tNote that the length has to be equal to the number of hidden layers, and that for any number\n");
+    fprintf(file,          "\t\tof hidden layers other than 1 this argument is not optional (default: ");
+    for (size_t i = 0; i < DEFAULT_N_HIDDEN_LAYERS; i++) { if (i > 0) { fprintf(file, ","); } fprintf(file, "%lu", DEFAULT_NODES_PER_HIDDEN_LAYER[i]); }
+    fprintf(file, ")\n");
+
+    fprintf(file, "\nMiscellaneous options:\n");
+    fprintf(file, "  -h\t\tPrints this help message.\n");
+    fprintf(file, "  <var_args>\tAny number of optional positional arguments that are specific to the variations.\n");
+    fprintf(file, "\n");
+}
+
+/* Parses the command line arguments and stores the result into the given options struct.
+ * Note: it exits the program when the user entered something invalid, printing an
+ *   appropriate error message.
+ * 
+ * Parameters:
+ *   @param opts the options struct to store all results in
+ *   @param argc the number of arguments passed to the program
+ *   @param argv the arguments, as list of pointers, passed to the program
+ */
+void parse_arguments(options* opts, int argc, char** argv) {
+    // Set as default first
+    opts->epochs = DEFAULT_EPOCHS;
+    opts->learning_rate = DEFAULT_LEARNING_RATE;
+    opts->n_samples = DEFAULT_N_SAMPLES;
+    opts->sample_size = DEFAULT_SAMPLE_SIZE;
+    opts->n_classes = DEFAULT_N_CLASSES;
+    opts->n_hidden_layers = DEFAULT_N_HIDDEN_LAYERS;
+    opts->nodes_per_hidden_layer = DEFAULT_NODES_PER_HIDDEN_LAYER;
+    opts->data_min = DEFAULT_DATA_MIN;
+    opts->data_max = DEFAULT_DATA_MAX;
+
+    // Then, go through all inputs
+    int opt;
+    while ((opt = getopt(argc, argv, ":S:s:c:D:d:e:l:H:N:h")) != -1) {
+        switch(opt) {
+            case '?':
+                print_usage(stderr, argv[0]);
+                fprintf(stderr, "\nERROR: Unknown option '%c'. Run '%s -h' to see a list of possible options.\n", optopt, argv[0]);
+                exit(EXIT_FAILURE);
+            case ':':
+                print_usage(stderr, argv[0]);
+                fprintf(stderr, "\nERROR: Missing value for option '%c'. Run '%s -h' to see a description.\n", optopt, argv[0]);
+                exit(EXIT_FAILURE);
+            case 'S':
+                // Number of samples
+                opts->n_samples = str_to_ulong(opt, optarg);
+                break;
+            case 'h':
+                print_help(stdout, argv[0]);
+                exit(EXIT_SUCCESS);
+        }
+    }
 }
 
 
@@ -100,6 +277,8 @@ void fprint_classes(FILE* file, size_t n_samples, size_t n_classes, double** cla
 /***** DATASET GENERATORS *****/
 
 /* Generates a dataset with random doubles in the given range. Additionally, each element is given a random class, also in the specified range.
+ *
+ * Parameters:
  *   @param dataset the resulting pointer that is allocated by the function which will point to the 2D-array of the generated datapoints
  *   @param classes the resulting pointer that is allocated by the function which will point to the 2D-array of the randomly assigned classes
  *   @param n_samples desired number of samples in the dataset
@@ -137,22 +316,97 @@ void generate_random(double*** dataset, double*** classes, size_t n_samples, siz
 
 /***** MAIN *****/
 int main(int argc, char** argv) {
+    // The options
+    options opts;
+
+    // Parse the command line arguments
+    parse_arguments(&opts, argc, argv);
+
+    // Do the intro print
+    #ifndef BENCHMARK
+    printf("\n*** NEURAL NETWORK training RANDOM DATASET ***\n\n");
+
+    printf("Dataset configuration:\n");
+    printf(" - Number of samples       : %lu\n", opts.n_samples);
+    printf(" - Size of each sample     : %lu\n", opts.sample_size);
+    printf(" - Number of classes       : %lu\n", opts.n_classes);
+    printf(" - Data range upperbound   : %.2f\n", opts.data_max);
+    printf(" - Data range lowerbound   : %.2f\n", opts.data_min);
+    printf("\n");
+
+    printf("Neural network configuration:\n");
+    print_opt_args();
+    printf(" - Number of epochs        : %u\n", opts.epochs);
+    printf(" - Learning rate (eta)     : %.2f\n", opts.learning_rate);
+    printf(" - Number of hidden layers : %lu\n", opts.n_hidden_layers);
+    printf(" - Nodes per hidden layer  : "); fprint_array(stdout, opts.n_hidden_layers, opts.nodes_per_hidden_layer); printf("\n");
+    printf("\n");
+
+    printf("Generating random data...");
+    #endif
+
     // Generate a random data
     double** dataset;
     double** classes;
-    generate_random(&dataset, &classes, 10, 10, -3, 3, 5);
-    
-    printf("\nDataset:\n");
-    fprint_ptrlist(stdout, 10, 10, dataset);
-    printf("\nClasses:\n");
-    fprint_ptrlist(stdout, 10, 5, classes);
-    printf("\nClasses (numerical): ");
-    fprint_classes(stdout, 10, 5, classes);
-    printf("\n\n");
+    generate_random(&dataset, &classes, opts.n_samples, opts.sample_size, opts.data_min, opts.data_max, opts.n_classes);
+
+    #ifndef BENCHMARK
+    printf(" Done\n");
+    #endif
+
+    #ifndef BENCHMARK
+    printf("Creating neural network...");
+    #endif
+    neural_net* nn = create_nn(opts.sample_size, opts.n_hidden_layers, opts.nodes_per_hidden_layer, opts.n_classes);
+    #ifndef BENCHMARK
+    printf(" Done\n");
+    #endif
+
+    #ifndef BENCHMARK
+    printf("Training neural network...");
+    fflush(stdout);
+    #endif
+
+    // Declare some time structs
+    struct timeval start_ms, end_ms;
+    clock_t start, end;
+
+    // Start recording the time
+    start = clock();
+    gettimeofday(&start_ms, NULL);
+
+    // Run the training
+    // nn_train(nn, opts.n_samples, dataset, classes, opts.learning_rate, opts.epochs);
+
+    // Stop recording the time
+    gettimeofday(&end_ms, NULL);
+    end = clock();
+
+    // Print the results
+    #ifdef BENCHMARK
+    printf("%f,%f",
+           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
+           (end - start) / (double) CLOCKS_PER_SEC);
+    #else
+    printf(" Done (%f seconds, %f seconds CPU time)\n",
+           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
+           (end - start) / (double) CLOCKS_PER_SEC);
+    #endif
 
     // Clean 'em
-    clean(10, dataset);
-    clean(10, classes);
+    #ifndef BENCHMARK
+    printf("Cleaning up...");
+    #endif
+
+    clean(opts.n_samples, dataset);
+    clean(opts.n_samples, classes);
+    destroy_nn(nn);
+
+    #ifndef BENCHMARK
+    printf(" Done\n");
+
+    printf("\nDone.\n\n");
+    #endif
 
     return 0;
 }

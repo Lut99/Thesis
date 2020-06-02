@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/1/2020, 7:44:43 PM
+ *   6/2/2020, 9:55:40 PM
  * Auto updated?
  *   Yes
  *
@@ -235,6 +235,5 @@ void parse_opt_args(int argc, char** argv) {
 
 void print_opt_args() {
     // Only print the name
-    printf("Configuration:\n");
     printf(" - Variation : sequential\n\n");
 }

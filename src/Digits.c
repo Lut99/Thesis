@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   5/31/2020, 11:59:37 PM
+ *   6/2/2020, 9:55:51 PM
  * Auto updated?
  *   Yes
  *
@@ -174,6 +174,7 @@ int main(int argc, char** argv) {
     printf("\n*** NEURAL NETWORK training DIGITS ***\n\n");
 
     // Call the list of used arguments
+    printf("Configuration:\n");
     print_opt_args();
 
     printf("Loading digit dataset \"%s\"...\n", argv[1]);
