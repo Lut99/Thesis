@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/2/2020, 9:55:26 PM
+ *   6/4/2020, 8:51:17 PM
  * Auto updated?
  *   Yes
  *
@@ -266,7 +266,7 @@ void parse_opt_args(int argc, char** argv) {
 }
 
 void print_opt_args() {
-    printf(" - Variation         : OpenMP CPU 5 (Forward only, with SIMD)\n");
-    printf(" - Number of threads : %u\n\n", n_threads);
+    printf(" - Variation               : OpenMP CPU 5 (Forward only, with SIMD)\n");
+    printf(" - Number of threads       : %u\n", n_threads);
 }
 

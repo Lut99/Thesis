@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/2/2020, 11:34:33 PM
+ *   6/4/2020, 8:56:09 PM
  * Auto updated?
  *   Yes
  *
@@ -24,6 +24,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 
 #include "NeuralNetwork.h"
 #include "Array.h"
@@ -161,14 +162,26 @@ void fprint_classes(FILE* file, size_t n_samples, size_t n_classes, double** cla
 /* Converts given text to an unsigned long. Note that it prints an error message and exists the program whenever an error occurs.
  * 
  * Parameters:
+ *   @param opt the option we are currently parsing. Used for errors.
  *   @param str the zero-terminated string to convert to an unsigned long
  */
 unsigned long str_to_ulong(char opt, char* str) {
+    // Because '-' is not picked up as illegal, scout for those first
+    for (int i = 0; ; i++) {
+        char c = str[i];
+        if (c == '-') {
+            fprintf(stderr, "ERROR: Option '%c': cannot convert \"%s\" to an unsigned long.\n", opt, str);
+            exit(EXIT_FAILURE);
+        } else if (c == '\0') {
+            break;
+        }
+    }
+
     char* end;
     unsigned long to_ret = strtoul(str, &end, 10);
     
     // Error if we encountered an illegal character
-    if (*end == '\0') {
+    if (*end != '\0') {
         fprintf(stderr, "ERROR: Option '%c': cannot convert \"%s\" to an unsigned long.\n", opt, str);
         exit(EXIT_FAILURE);
     }
@@ -178,6 +191,101 @@ unsigned long str_to_ulong(char opt, char* str) {
         fprintf(stderr, "ERROR: Option '%c': value \"%s\" is out of range for unsigned long.\n", opt, str);
         exit(EXIT_FAILURE);
     }
+
+    // Otherwise, return the value
+    return to_ret;
+}
+
+/* Converts given text to a double. Note that it prints an error message and exists the program whenever an error occurs.
+ * 
+ * Parameters:
+ *   @param opt the option we are currently parsing. Used for errors.
+ *   @param str the zero-terminated string to convert to a double
+ */
+double str_to_double(char opt, char* str) {
+    char* end;
+    double to_ret = strtod(str, &end);
+    
+    // Error if we encountered an illegal character
+    if (*end != '\0') {
+        fprintf(stderr, "ERROR: Option '%c': cannot convert \"%s\" to an double.\n", opt, str);
+        exit(EXIT_FAILURE);
+    }
+
+    // Also stop if we are out of range
+    if ((to_ret == HUGE_VAL || to_ret == -HUGE_VAL) && errno == ERANGE) {
+        fprintf(stderr, "ERROR: Option '%c': value \"%s\" is out of range for double.\n", opt, str);
+        exit(EXIT_FAILURE);
+    }
+
+    // Otherwise, return the value
+    return to_ret;
+}
+
+/* Converts given text to a list of unsigned longs. Note that it prints an error message and exists the program whenever an error occurs.
+ * 
+ * Parameters:
+ *   @param n_hidden_layers the number of hidden layers, aka, the length of the list
+ *   @param opt the option we are currently parsing. Used for errors.
+ *   @param str the zero-terminated string to convert to a list
+ */
+size_t* str_to_list(size_t n_hidden_layers, char opt, char* str) {
+    // If the number of hidden layers is 0, simply return NULL
+    if (n_hidden_layers == 0) {
+        return NULL;
+    }
+
+    // Declare the return list
+    size_t* to_ret = malloc(sizeof(size_t) * n_hidden_layers);
+    size_t to_ret_i = 0;
+
+    // Create a buffer to store the individual numbers
+    char buffer[512];
+    int buffer_i = 0;
+
+    // Loop through the string to parse
+    char c = str[0];
+    for (int i = 0; c != '\0'; i++) {
+        // Make sure to break on commas
+        if (c == ',') {
+            // If we already hit our target, throw an error
+            if (to_ret_i >= n_hidden_layers - 1) {
+                free(to_ret);
+                fprintf(stderr, "ERROR: Option '%c': Given list is too long (larger than n_hidden_layers, or %lu).\n", opt, n_hidden_layers);
+                exit(EXIT_FAILURE);
+            }
+
+            // Zero-terminate the buffer and convert to size_t
+            buffer[buffer_i] = '\0';
+            to_ret[to_ret_i] = str_to_ulong(opt, buffer);
+
+            // Reset the buffer_i, increment to_ret_i
+            buffer_i = 0;
+            to_ret_i++;
+        } else {
+            // Add the value to the buffer & increment
+            buffer[buffer_i] = c;
+            buffer_i++;
+            if (buffer_i >= 512) {
+                free(to_ret);
+                fprintf(stderr, "ERROR: Option '%c': Buffer overflow for element %lu\n", opt, to_ret_i);
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        c = str[i + 1];
+    }
+
+    // Make sure we seen enough elements
+    if (to_ret_i < n_hidden_layers - 1) {
+        free(to_ret);
+        fprintf(stderr, "ERROR: Option '%c': Given list is too short (shorter than n_hidden_layers, or %lu).\n", opt, n_hidden_layers);
+        exit(EXIT_FAILURE);
+    }
+
+    // Add the remaining buffer
+    buffer[buffer_i] = '\0';
+    to_ret[to_ret_i] = str_to_ulong(opt, buffer);
 
     // Otherwise, return the value
     return to_ret;
@@ -216,6 +324,7 @@ void print_help(FILE* file, char* name) {
     fprintf(file, "  -e <ulong>\tThe number of epochs for the neural network (default: " STR(DEFAULT_EPOCHS) ")\n");
     fprintf(file, "  -l <float>\tThe learning rate for the neural network (default: " STR(DEFAULT_LEARNING_RATE) ")\n");
     fprintf(file, "  -H <ulong>\tThe number of hidden layers in the neural network (default: " STR(DEFAULT_N_HIDDEN_LAYERS) ")\n");
+    fprintf(file,           "\t\tNote: -H must be specified before -N to make it use the correct number of hidden layers.\n");
     fprintf(file, "  -N <list>\tThe number of nodes per hidden layer. Should be a comma-separated list (without whitespaces).\n");
     fprintf(file,          "\t\tNote that the length has to be equal to the number of hidden layers, and that for any number\n");
     fprintf(file,          "\t\tof hidden layers other than 1 this argument is not optional (default: ");
@@ -265,11 +374,56 @@ void parse_arguments(options* opts, int argc, char** argv) {
                 // Number of samples
                 opts->n_samples = str_to_ulong(opt, optarg);
                 break;
+            case 's':
+                // Sample size
+                opts->sample_size = str_to_ulong(opt, optarg);
+                break;
+            case 'c':
+                // Number of classes
+                opts->n_classes = str_to_ulong(opt, optarg);
+                break;
+            case 'D':
+                // Data max
+                opts->data_max = str_to_double(opt, optarg);
+                break;
+            case 'd':
+                // Number of samples
+                opts->data_min = str_to_double(opt, optarg);
+                break;
+            case 'e':
+                // Number of epochs
+                opts->epochs = str_to_ulong(opt, optarg);
+                break;
+            case 'l':
+                // Learning rate
+                opts->learning_rate = str_to_double(opt, optarg);
+                break;
+            case 'H':
+                // Number of hidden layers
+                opts->n_hidden_layers = str_to_ulong(opt, optarg);
+                break;
+            case 'N':
+                // Number of nodes per hidden layer
+                opts->nodes_per_hidden_layer = str_to_list(opts->n_hidden_layers, opt, optarg);
+                break;
             case 'h':
                 print_help(stdout, argv[0]);
                 exit(EXIT_SUCCESS);
         }
     }
+
+    // Make sure the nodes_per_hidden_layer has changed if needed
+    if (opts->n_hidden_layers != DEFAULT_N_HIDDEN_LAYERS &&
+        opts->n_hidden_layers != 0 &&
+        opts->nodes_per_hidden_layer == DEFAULT_NODES_PER_HIDDEN_LAYER)
+    {
+        fprintf(stderr, "ERROR: Changed number of hidden layers to %lu, but did not specify new list of nodes per layer.\n",
+                opts->n_hidden_layers);
+        exit(EXIT_FAILURE);
+    }
+
+    // For any other, positional arguments, pass those to the variations
+    parse_opt_args(argc - optind, argv + optind);
 }
 
 
@@ -337,7 +491,7 @@ int main(int argc, char** argv) {
     printf("Neural network configuration:\n");
     print_opt_args();
     printf(" - Number of epochs        : %u\n", opts.epochs);
-    printf(" - Learning rate (eta)     : %.2f\n", opts.learning_rate);
+    printf(" - Learning rate (eta)     : %f\n", opts.learning_rate);
     printf(" - Number of hidden layers : %lu\n", opts.n_hidden_layers);
     printf(" - Nodes per hidden layer  : "); fprint_array(stdout, opts.n_hidden_layers, opts.nodes_per_hidden_layer); printf("\n");
     printf("\n");
@@ -401,6 +555,10 @@ int main(int argc, char** argv) {
     clean(opts.n_samples, dataset);
     clean(opts.n_samples, classes);
     destroy_nn(nn);
+    // Don't forget to clean the hidden list
+    if (opts.nodes_per_hidden_layer != DEFAULT_NODES_PER_HIDDEN_LAYER && opts.nodes_per_hidden_layer != NULL) {
+        free(opts.nodes_per_hidden_layer);
+    }
 
     #ifndef BENCHMARK
     printf(" Done\n");
