@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/6/2020, 11:01:34 PM
+ *   6/6/2020, 11:09:10 PM
  * Auto updated?
  *   Yes
  *
@@ -21,14 +21,6 @@ extern "C" {
 
 
 /***** IDEAS *****/
- 
-/* Maybe replace copying with a simple Kernel which sets everything to naught?
- * I mean, the data is already there, all the CPU / GPU have to do is launch it
- * and we're done. In fact, can be done in parallel with the activation
- * function (different stream) to achieve more speedup!
- * (Expected time expense: small, as is simple kernel (except when looking at
- *  multiple streams but should be feasable in theory?))
- */
 
 /* Could be worth to split single phases into multiple, so that the for-loop
  * areas could be updated even further.
