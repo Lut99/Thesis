@@ -4,7 +4,7 @@
  * Created:
  *   28/04/2020, 19:29:28
  * Last edited:
- *   5/24/2020, 3:17:21 PM
+ *   6/6/2020, 10:56:29 PM
  * Auto updated?
  *   Yes
  *
@@ -16,8 +16,9 @@
 #ifndef _ARRAY_H
 #define _ARRAY_H
 
-#include "stddef.h"
-#include "stdbool.h"
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 
 /***** STRUCT DEFINITIONS *****/

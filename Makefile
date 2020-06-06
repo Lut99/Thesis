@@ -1,7 +1,7 @@
 GCC=gcc
 GCC_ARGS=-std=c11 -O2 -Wall -Wextra
 NVCC=nvcc
-NVCC_ARGS=-O2 --gpu-architecture=compute_52 --gpu-code=sm_52
+NVCC_ARGS=-O2 --gpu-architecture=compute_75 --gpu-code=sm_75
 
 EXT_LIBS=-lm
 
@@ -68,7 +68,7 @@ $(OBJ)/TestData.o: $(SRC)/TestData.c | dirs
 
 $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
-$(BIN)/digits_cuda.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/NeuralNetwork_${VARIATION}_aux.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
+$(BIN)/digits_cuda.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(BIN)/testdata.out: $(OBJ)/TestData.o $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Support.a | dirs
@@ -80,7 +80,7 @@ $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 digits: $(BIN)/digits.out
 
 digits_cuda: $(BIN)/digits_cuda.out
-	mv $(BIN)/digits_cuda.out $(BIN)/digits.out
+	cp -f $(BIN)/digits_cuda.out $(BIN)/digits.out
 
 testdata: $(BIN)/testdata.out
 

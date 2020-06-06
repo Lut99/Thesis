@@ -4,7 +4,7 @@
  * Created:
  *   5/24/2020, 9:25:20 PM
  * Last edited:
- *   5/27/2020, 12:01:07 AM
+ *   6/6/2020, 10:41:16 PM
  * Auto updated?
  *   Yes
  *
@@ -345,7 +345,7 @@ void reduction_2D() {
 }
 
 
-void reduction_3D() {
+void reduction_3D(size_t W, size_t H, size_t D) {
     printf("\n\n\n***** THREE-DIMENSIONAL *****\n\n");
 
     struct timeval start, stop;
@@ -354,9 +354,6 @@ void reduction_3D() {
     srand(time(NULL));
 
     // Initialize a 2D matrix
-    size_t W = 500;
-    size_t H = 500;
-    size_t D = 5000;
     int max = 50;
     unsigned long to_reduce[W * H * D];
     for (size_t i = 0; i < W * H * D; i++) {
@@ -486,7 +483,7 @@ int main() {
 
     // reduction_2D();
 
-    reduction_3D();
+    reduction_3D(500, 500, 5000);
 
     printf("\n\n\n");
     return 0;
