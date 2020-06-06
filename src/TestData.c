@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/4/2020, 8:56:09 PM
+ *   6/6/2020, 2:05:05 PM
  * Auto updated?
  *   Yes
  *
@@ -530,7 +530,7 @@ int main(int argc, char** argv) {
     gettimeofday(&start_ms, NULL);
 
     // Run the training
-    // nn_train(nn, opts.n_samples, dataset, classes, opts.learning_rate, opts.epochs);
+    nn_train(nn, opts.n_samples, dataset, classes, opts.learning_rate, opts.epochs);
 
     // Stop recording the time
     gettimeofday(&end_ms, NULL);
