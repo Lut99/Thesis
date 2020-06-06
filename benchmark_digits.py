@@ -13,7 +13,6 @@ import argparse
 import os
 import sys
 import subprocess
-import numpy as np
 from collections import defaultdict
 
 
@@ -21,25 +20,9 @@ from collections import defaultdict
 DEFAULT_OUTPUTPATH = "benchmark_results.csv"
 DEFAULT_CODEDIR = "src/lib/NeuralNetwork"
 DEFAULT_VARIATIONS = ["*"]
-DEFAULT_ITERATIONS = 3
-HEADERS = ["n_threads", "n_hidden_layers", "nodes_per_layer", "n_epochs", "n_samples", "sample_size", "n_classes"]
-HEADER_PARAM_MAP = {
-    "n_hidden_layers": "-H",
-    "nodes_per_layer": "-N",
-    "n_epochs": "-e",
-    "n_samples": "-S",
-    "sample_size": "-s",
-    "n_classes": "-c"
-}
-
-DEFAULT_N_SAMPLES = [1, 10, 50, 100, 500, 1000, 5000, 10000, 100000, 1000000]
-DEFAULT_SAMPLE_SIZES = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
-DEFAULT_N_CLASSES = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
-DEFAULT_EPOCHS = [1, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000]
-DEFAULT_N_HIDDEN_LAYERS = [0, 1, 2, 5, 10, 25]
-DEFAULT_NODES_PER_HIDDEN_LAYER = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
-
-DEFAULT_THREADS = [1, 2, 4, 6, 8, 10, 12, 16, 32]
+DEFAULT_THREADS = [1, 2, 4, 8, 16, 32]
+DEFAULT_ITERATIONS = 10
+HEADERS = ["num_threads"]
 
 
 def is_float(n):
@@ -52,24 +35,7 @@ def is_float(n):
 
 
 def run(var_ID, params, das_reservation):
-    # Construct the command to run
-    cmd = ["bin/testdata.out"]
-
-    # Add the flags
-    for h in HEADERS:
-        if h in HEADER_PARAM_MAP and h in params:
-            val = params[h]
-            if h == "nodes_per_layer":
-                # Pad it to be a list of H size first
-                val = ",".join([str(val)] * params["n_hidden_layers"])
-
-            cmd += [HEADER_PARAM_MAP[h], f"{val}"]
-    
-    # Add the positionals
-    for h in HEADERS:
-        if h not in HEADER_PARAM_MAP and h in params:
-            cmd.append(f"{params[h]}")
-
+    cmd = ["bin/digits.out", "./digits.csv"] + [str(params[header]) for header in HEADERS if header in params]
     if das_reservation is not None:
         cmd = ["prun", "-np", "1", "-reserve", f"{das_reservation}"] + cmd
 
@@ -92,16 +58,16 @@ def run(var_ID, params, das_reservation):
 
 
 def compile(var_ID):
-    # Clean existing bin/testdata.out file to force linking
-    res = subprocess.run(["rm", "-f", "bin/testdata.out"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Clean existing bin/digits.out file to force linking
+    res = subprocess.run(["rm", "-f", "bin/digits.out"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if res.returncode != 0:
-        print(f"\nERROR: Failed to run 'rm -f bin/testdata.out' (return status {res.returncode}):\n{res.stderr.decode('utf-8')}", file=sys.stderr)
+        print(f"\nERROR: Failed to run 'rm -f bin/digits.out' (return status {res.returncode}):\n{res.stderr.decode('utf-8')}", file=sys.stderr)
         exit(-1)
 
     # Compile new variation
-    res = subprocess.run(["make", "testdata", f"VARIATION={var_ID}", "BENCHMARK=1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    res = subprocess.run(["make", "digits", f"VARIATION={var_ID}", "BENCHMARK=1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if res.returncode != 0:
-        print(f"\nERROR: Failed to run 'make testdata VARIATION={var_ID} BENCHMARK=1' (return status {res.returncode}):\n{res.stderr.decode('utf-8')}", file=sys.stderr)
+        print(f"\nERROR: Failed to run 'make digits VARIATION={var_ID}' (return status {res.returncode}):\n{res.stderr.decode('utf-8')}", file=sys.stderr)
         exit(-1)
 
 
@@ -133,29 +99,17 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
     print(f"       > Average: {avg_runtime / iterations} seconds")
 
 
-def main(outputpath, variations, iterations, das_reservation, args):
+def main(outputpath, variations, threads, iterations, das_reservation):
     print("\n### BENCHMARK TOOL for NEURALNETWORK.c ###\n")
 
-    print(f"Benchmark configuration:")
-    print(f" - Output file                     : \"{outputpath}\"")
-    print(f" - Benchmarking versions           : {variations}")
-    print(f" - Iterations per test             : {iterations}")
-    print(f" - DAS5-mode                       : {das_reservation is not None}")
+    print(f"Configuration:")
+    print(f" - Output file           : \"{outputpath}\"")
+    print(f" - Benchmarking versions : {variations}")
+    print(f" - Threads to test       : {threads}")
+    print(f" - Iterations per test   : {iterations}")
+    print(f" - DAS5-mode             : {das_reservation is not None}")
     if das_reservation is not None:
-        print(f"    - DAS5 reservation             : {das_reservation}")
-    print("")
-
-    print(f"Parameter configuration:")
-    print(f" - Number of samples to test       : {list(args.samples)}")
-    print(f" - Samepl size to test             : {list(args.sample_size)}")
-    print(f" - Number of classes to test       : {list(args.classes)}")
-    print(f" - Epochs to test                  : {list(args.epochs)}")
-    print(f" - Number of hidden layers to test : {list(args.hidden)}")
-    print(f" - Nodes per hidden layer to test  : {list(args.nodes)}")
-    print("")
-
-    print(f"Variation-specific parameter configuration:")
-    print(f" - Threads to test       : {args.threads}")
+        print(f"    - DAS5 reservation   : {das_reservation}")
     print("")
 
     print("Cleaning existing binaries...", end="")
@@ -221,25 +175,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
 
             # Run for the different parameters
             print("      Running...")
-            i = 0
-            total = len(args.hidden) * len(args.nodes) * len(args.epochs) * len(args.samples) * len(args.sample_size) * len(args.classes)
-            for n_hidden_layers in args.hidden:
-                for nodes_per_layer in args.nodes:
-                    for n_epochs in args.epochs:
-                        for n_samples in args.samples:
-                            for sample_size in args.sample_size:
-                                for n_classes in args.classes:
-                                    i += 1
-                                    param_set = {
-                                        "n_hidden_layers": n_hidden_layers,
-                                        "nodes_per_layer": nodes_per_layer,
-                                        "n_epochs": n_epochs,
-                                        "n_samples": n_samples,
-                                        "sample_size": sample_size,
-                                        "n_classes": n_classes,
-                                    }
-                                    print(f"       > ({i}/{total}) Params: {param_set}")
-                                    run_benchmark(output, seq, iterations, param_set, das_reservation)
+            run_benchmark(output, seq, iterations, {}, das_reservation)
             print("      Done")
         print("Done\n")
 
@@ -257,27 +193,9 @@ def main(outputpath, variations, iterations, das_reservation, args):
 
             # Run for the different parameters
             print("      Running...")
-            i = 0
-            total = len(args.threads) * len(args.hidden) * len(args.nodes) * len(args.epochs) * len(args.samples) * len(args.sample_size) * len(args.classes)
-            for n_threads in args.threads:
-                for n_hidden_layers in args.hidden:
-                    for nodes_per_layer in args.nodes:
-                        for n_epochs in args.epochs:
-                            for n_samples in args.samples:
-                                for sample_size in args.sample_size:
-                                    for n_classes in args.classes:
-                                        i += 1
-                                        param_set = {
-                                            "n_threads": n_threads,
-                                            "n_hidden_layers": n_hidden_layers,
-                                            "nodes_per_layer": nodes_per_layer,
-                                            "n_epochs": n_epochs,
-                                            "n_samples": n_samples,
-                                            "sample_size": sample_size,
-                                            "n_classes": n_classes,
-                                        }
-                                        print(f"       > ({i}/{total}) Params: {param_set}")
-                                        run_benchmark(output, cpu, iterations, param_set, das_reservation)
+            for n_threads in threads:
+                print(f"       > Params: n_threads={n_threads}")
+                run_benchmark(output, cpu, iterations, {"num_threads": n_threads}, das_reservation)
             print("      Done")
         print("Done\n")
 
@@ -297,24 +215,12 @@ def main(outputpath, variations, iterations, das_reservation, args):
 if __name__ == "__main__":
     # Parse the arguments
     parser = argparse.ArgumentParser(description='Benchmark for the Feedforward Neural Network.')
-
-    # Benchmarking related
     parser.add_argument("-r", "--reservation", required=False, default=None, type=int, help="If given, uses the DAS 'prun' command to run a benchmark on the remote node with the given reservation number.")
     parser.add_argument("-o", "--output", required=False, default=DEFAULT_OUTPUTPATH, help=f"Path to file that contains the data. Note that any existing files will be overwritten. Default: \"{DEFAULT_OUTPUTPATH}\"")
     parser.add_argument("-d", "--directory", required=False, default=DEFAULT_CODEDIR, help=f"The path to the directory with all the NeuralNetwork implementations. Default: \"{DEFAULT_CODEDIR}\"")
     parser.add_argument("-v", "--variations", required=False, nargs='+', default=DEFAULT_VARIATIONS, help=f"The different code variations that will be benchmarked. The version given should equal the filename of the target file, excluding 'NeuralNetwork_' and '.c'. If set to \"*\", all files in the Optimisation directory are benchmarked. Default: {DEFAULT_VARIATIONS}")
-    parser.add_argument("-i", "--iterations", required=False, default=DEFAULT_ITERATIONS, type=int, help=f"The number of iterations each test case will be run. Default: {DEFAULT_ITERATIONS}")
-
-    # Parameters
-    parser.add_argument("-S", "--samples", required=False, nargs='+', default=DEFAULT_N_SAMPLES, type=int, help=f"Specifies the values for the number of samples to try the variations on. Default: {DEFAULT_N_SAMPLES}")
-    parser.add_argument("-s", "--sample_size", required=False, nargs='+', default=DEFAULT_SAMPLE_SIZES, type=int, help=f"Specifies the values for the samples sizes to try the variations on. Default: {DEFAULT_SAMPLE_SIZES}")
-    parser.add_argument("-c", "--classes", required=False, nargs='+', default=DEFAULT_N_CLASSES, type=int, help=f"Specifies the values for the number of classes to try the variations on. Default: {DEFAULT_N_CLASSES}")
-    parser.add_argument("-e", "--epochs", required=False, nargs='+', default=DEFAULT_EPOCHS, type=int, help=f"Specifies the values for the number of epochs to try the variations on. Default: {DEFAULT_EPOCHS}")
-    parser.add_argument("-H", "--hidden", required=False, nargs='+', default=DEFAULT_N_HIDDEN_LAYERS, type=int, help=f"Specifies the values for the number of hidden layers to try the variations on. Default: {DEFAULT_N_HIDDEN_LAYERS}")
-    parser.add_argument("-N", "--nodes", required=False, nargs='+', default=DEFAULT_NODES_PER_HIDDEN_LAYER, type=int, help=f"Specifies the values for the number of nodes per hidden layer to try the variations on. Note: uses a single value for all layers. Default: {DEFAULT_NODES_PER_HIDDEN_LAYER}")
-    
-    # Variation specific
     parser.add_argument("-t", "--threads", required=False, nargs='+', default=DEFAULT_THREADS, type=int, help=f"Specify the values for which to try different number of threads. Default: {DEFAULT_THREADS}")
+    parser.add_argument("-i", "--iterations", required=False, default=DEFAULT_ITERATIONS, type=int, help=f"The number of iterations each test case will be run. Default: {DEFAULT_ITERATIONS}")
 
     args = parser.parse_args()
 
@@ -371,6 +277,13 @@ if __name__ == "__main__":
         args.variations = sorted(args.variations)
 
 
+    # Check if the number of threads make sense
+    for t in args.threads:
+        if t < 1:
+            print(f"ERROR: Number of threads can only be positive, not {t}.", file=sys.stderr)
+            exit(-1)
+
+
     # Check if the number of iterations is legal
     if args.iterations < 1:
         print(f"ERROR: Number of iterations can only be positive, not {args.iterations}.", file=sys.stderr)
@@ -378,4 +291,4 @@ if __name__ == "__main__":
 
 
     # Now that's done, call main
-    exit(main(args.output, args.variations, args.iterations, args.reservation, args))
+    exit(main(args.output, args.variations, args.threads, args.iterations, args.reservation))

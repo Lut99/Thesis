@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/6/2020, 2:05:05 PM
+ *   6/6/2020, 3:20:53 PM
  * Auto updated?
  *   Yes
  *
@@ -312,8 +312,8 @@ void print_help(FILE* file, char* name) {
     fprintf(file, "Usage:\n    %s [-h] [-SsceH <ulong>] [-Ddl <float>] [-N <list>] [<var_args>]\n", name);
 
     fprintf(file, "\nDataset options:\n");
-    fprintf(file, "  -S <ulong>\tTthe number of samples generated in the dataset (default: " STR(DEFAULT_N_SAMPLES) ")\n");
-    fprintf(file, "  -s <ulong>\tTthe number of elements for each sample in the dataset (default: " STR(DEFAULT_SAMPLE_SIZE) ")\n");
+    fprintf(file, "  -S <ulong>\tThe number of samples generated in the dataset (default: " STR(DEFAULT_N_SAMPLES) ")\n");
+    fprintf(file, "  -s <ulong>\tThe number of elements for each sample in the dataset (default: " STR(DEFAULT_SAMPLE_SIZE) ")\n");
     fprintf(file,          "\t\tNote that the first layer of the neural network has this many nodes.\n");
     fprintf(file, "  -c <ulong>\tThe number of classes that the generated dataset can take (default: " STR(DEFAULT_N_CLASSES) ")\n");
     fprintf(file,          "\t\tNote that the last layer of the neural network has this many nodes.\n");

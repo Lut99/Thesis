@@ -1,1 +1,1 @@
-variation,iteration,num_threads,runtime,cputime
+variation,iteration,n_threads,n_hidden_layers,nodes_per_layer,n_epochs,n_samples,sample_size,n_classes,runtime,cputime
