@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/6/2020, 3:20:53 PM
+ *   6/7/2020, 10:06:23 PM
  * Auto updated?
  *   Yes
  *
@@ -314,9 +314,9 @@ void print_help(FILE* file, char* name) {
     fprintf(file, "\nDataset options:\n");
     fprintf(file, "  -S <ulong>\tThe number of samples generated in the dataset (default: " STR(DEFAULT_N_SAMPLES) ")\n");
     fprintf(file, "  -s <ulong>\tThe number of elements for each sample in the dataset (default: " STR(DEFAULT_SAMPLE_SIZE) ")\n");
-    fprintf(file,          "\t\tNote that the first layer of the neural network has this many nodes.\n");
+    fprintf(file,           "\t\tNote that the first layer of the neural network has this many nodes.\n");
     fprintf(file, "  -c <ulong>\tThe number of classes that the generated dataset can take (default: " STR(DEFAULT_N_CLASSES) ")\n");
-    fprintf(file,          "\t\tNote that the last layer of the neural network has this many nodes.\n");
+    fprintf(file,           "\t\tNote that the last layer of the neural network has this many nodes.\n");
     fprintf(file, "  -D <float>\tThe upperbound value (exclusive) for the random values in the dataset (default: " STR(DEFAULT_DATA_MAX) ")\n");
     fprintf(file, "  -d <float>\tThe lowerbound value (inclusive) for the random values in the dataset (default: " STR(DEFAULT_DATA_MIN) ")\n");
     
@@ -325,9 +325,9 @@ void print_help(FILE* file, char* name) {
     fprintf(file, "  -l <float>\tThe learning rate for the neural network (default: " STR(DEFAULT_LEARNING_RATE) ")\n");
     fprintf(file, "  -H <ulong>\tThe number of hidden layers in the neural network (default: " STR(DEFAULT_N_HIDDEN_LAYERS) ")\n");
     fprintf(file,           "\t\tNote: -H must be specified before -N to make it use the correct number of hidden layers.\n");
-    fprintf(file, "  -N <list>\tThe number of nodes per hidden layer. Should be a comma-separated list (without whitespaces).\n");
-    fprintf(file,          "\t\tNote that the length has to be equal to the number of hidden layers, and that for any number\n");
-    fprintf(file,          "\t\tof hidden layers other than 1 this argument is not optional (default: ");
+    fprintf(file,  "  -N <list>\tThe number of nodes per hidden layer. Should be a comma-separated list (without whitespaces).\n");
+    fprintf(file,           "\t\tNote that the length has to be equal to the number of hidden layers, and that for any number\n");
+    fprintf(file,           "\t\tof hidden layers other than 1 this argument is not optional (default: ");
     for (size_t i = 0; i < DEFAULT_N_HIDDEN_LAYERS; i++) { if (i > 0) { fprintf(file, ","); } fprintf(file, "%lu", DEFAULT_NODES_PER_HIDDEN_LAYER[i]); }
     fprintf(file, ")\n");
 
