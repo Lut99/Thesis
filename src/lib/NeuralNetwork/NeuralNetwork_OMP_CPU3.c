@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/4/2020, 8:51:09 PM
+ *   6/7/2020, 10:26:59 PM
  * Auto updated?
  *   Yes
  *
@@ -68,14 +68,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
     // Create a list that is used to store intermediate outputs. The first input layer (=first column)
     //   is linked and not copied to the input data
-    double* layer_outputs[n_samples][n_layers];
-    for (size_t s = 0; s < n_samples; s++) {
-        // Link the input layer
-        layer_outputs[s][0] = inputs[s];
-        
-        // Allocate arrays for the other layers
+    double* layer_outputs[n_threads][n_layers];
+    for (size_t t = 0; t < n_threads; t++) {
+        // Allocate arrays for the other layers except the first as we link that one
         for (size_t l = 1; l < n_layers; l++) {
-            layer_outputs[s][l] = malloc(sizeof(double) * nodes_per_layer[l]);
+            layer_outputs[t][l] = malloc(sizeof(double) * nodes_per_layer[l]);
         }
     }
 
@@ -90,9 +87,15 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     }
 
     // Perform the training for n_iterations (always)
+    size_t last_nodes = nodes_per_layer[n_layers - 1];
+    size_t last_prev_nodes = nodes_per_layer[n_layers - 2];
     for (size_t i = 0; i < n_iterations; i++) {
         #pragma omp parallel
         {
+            int TID = omp_get_thread_num();
+            double* t_deltas = deltas[TID];
+            double** t_layer_outputs = layer_outputs[TID];
+
             /***** FORWARD PASS *****/
 
             // Loop through all samples to compute the forward cost
@@ -100,16 +103,16 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             for (size_t s = 0; s < n_samples; s++) {
                 // Perform a forward pass through the network to be able to say something about the performance
 
-                // sample_outputs is a 2D flattened array for this layer
-                double** sample_outputs = layer_outputs[s];
+                // Set the inputs to the first layer output
+                t_layer_outputs[0] = inputs[s];
 
                 // Iterate over each layer to feedforward through the network
                 for (size_t l = 1; l < n_layers; l++) {
                     // Get some references to the bias list, weight matrix and outputs of the previous and this layer
                     double* bias = biases[l - 1];
                     double* weight = weights[l - 1];
-                    double* prev_output = sample_outputs[l - 1];
-                    double* output = sample_outputs[l];
+                    double* prev_output = t_layer_outputs[l - 1];
+                    double* output = t_layer_outputs[l];
 
                     // Compute the activation for each node on this layer
                     size_t this_nodes = nodes_per_layer[l];
@@ -125,40 +128,33 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         output[n] = 1 / (1 + exp(-z));
                     }
                 }
-            }
 
-            /***** BACKWARD PASS *****/
-            // Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
+                /***** BACKWARD PASS *****/
+                // Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
 
-            // Loop through all samples to compute the backward cost
-            int TID = omp_get_thread_num();
-            size_t last_nodes = nodes_per_layer[n_layers - 1];
-            size_t last_prev_nodes = nodes_per_layer[n_layers - 2];
-            for (size_t s = 0; s < n_samples; s++) {
                 // Backpropagate the error from the last layer to the first.
-                double** sample_outputs = layer_outputs[s];
                 double* sample_expected = expected[s];
                 double* last_delta_bias = delta_biases[s][n_layers - 2];
                 double* last_delta_weight = delta_weights[s][n_layers - 2];
 
                 // Do the output layer: compute the deltas
-                double* output = sample_outputs[n_layers - 1];
+                double* output = t_layer_outputs[n_layers - 1];
                 for (size_t n = 0; n < last_nodes; n++) {
                     double output_val = output[n];
-                    deltas[TID][n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
+                    t_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
                 }
 
                 // Do the output layer: compute the bias & weight updates
 
                 // Add all deltas as delta_biases for this layer
                 for (size_t n = 0; n < last_nodes; n++) {
-                    last_delta_bias[n] = deltas[TID][n];
+                    last_delta_bias[n] = t_deltas[n];
                 }
                 // Same for all the weights, except we compute the delta_weights first
-                double* last_prev_output = sample_outputs[n_layers - 2];
+                double* last_prev_output = t_layer_outputs[n_layers - 2];
                 for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
                     for (size_t n = 0; n < last_nodes; n++) {
-                        last_delta_weight[prev_n * last_nodes + n] = last_prev_output[prev_n] * deltas[TID][n];
+                        last_delta_weight[prev_n * last_nodes + n] = last_prev_output[prev_n] * t_deltas[n];
                     }
                 }
                 
@@ -167,8 +163,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 for (size_t l = n_layers - 2; l > 0; l--) {
                     double* delta_bias = delta_biases[s][l - 1];
                     double* delta_weight = delta_weights[s][l - 1];
-                    double* output = sample_outputs[l];
-                    double* prev_output = sample_outputs[l - 1];
+                    double* output = t_layer_outputs[l];
+                    double* prev_output = t_layer_outputs[l - 1];
                     size_t next_nodes = nodes_per_layer[l + 1];
                     size_t this_nodes = nodes_per_layer[l];
                     size_t prev_nodes = nodes_per_layer[l - 1];
@@ -179,85 +175,22 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         // Take the weighted sum of all connection of that node with this layer
                         double error = 0;
                         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                            error += deltas[TID][next_n] * weight_next[n * next_nodes + next_n];
+                            error += t_deltas[next_n] * weight_next[n * next_nodes + next_n];
                         }
 
                         // Multiply the error with the derivative of the activation function to find the result
                         double output_val = output[n];
-                        deltas[TID][n] = error * output_val * (1 - output_val);
+                        t_deltas[n] = error * output_val * (1 - output_val);
                     }
 
                     // Add all deltas as delta_biases for this layer
                     for (size_t n = 0; n < this_nodes; n++) {
-                        delta_bias[n] = deltas[TID][n];
+                        delta_bias[n] = t_deltas[n];
                     }
                     // Same for all the weights, except we compute the delta_weights first
                     for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
                         for (size_t n = 0; n < this_nodes; n++) {
-                            delta_weight[prev_n * this_nodes + n] = prev_output[prev_n] * deltas[TID][n];
-                        }
-                    }
-                }
-            }
-            
-            /***** BACKWARD PASS *****/
-            // Implementation: https://towardsdatascience.com/simple-neural-network-implementation-in-c-663f51447547
-
-            // Loop through all samples to compute the backward cost
-            #pragma omp for schedule(static)
-            for (size_t s = 0; s < n_samples; s++) {
-                int TID = omp_get_thread_num();
-
-                // Backpropagate the error from the last layer to the first.
-                double** sample_outputs = layer_outputs[s];
-                double* sample_expected = expected[s];
-                for (size_t l = n_layers - 1; l > 0; l--) {
-                    // Set shortcuts to some values used both in delta computing and weight / bias updating
-                    size_t this_nodes = nodes_per_layer[l];
-                    double* output = sample_outputs[l];
-
-                    // Compute the deltas of the correct layer
-                    if (l == n_layers - 1) {
-                        // Deltas for output layer
-
-                        // Loop through all nodes in this layer to compute their deltas
-                        for (size_t n = 0; n < this_nodes; n++) {
-                            double output_val = output[n];
-                            deltas[TID][n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
-                        }
-                    } else {
-                        // Deltas for any hidden layer
-                        
-                        // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
-                        size_t next_nodes = nodes_per_layer[l + 1];
-                        double* weight_next = weights[l];
-                        for (size_t n = 0; n < this_nodes; n++) {
-                            // Take the weighted sum of all connection of that node with this layer
-                            double error = 0;
-                            for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                                error += deltas[TID][next_n] * weight_next[n * next_nodes + next_n];
-                            }
-
-                            // Multiply the error with the derivative of the activation function to find the result
-                            double output_val = output[n];
-                            deltas[TID][n] = error * output_val * (1 - output_val);
-                        }
-                    }
-
-                    // Set some shutcuts for weight updating alone so they don't have to be recomputed each iteration
-                    size_t prev_nodes = nodes_per_layer[l - 1];
-                    double* delta_bias = delta_biases[s][l - 1];
-                    double* delta_weight = delta_weights[s][l - 1];
-                    double* prev_output = sample_outputs[l - 1];
-
-                    // Add all deltas as delta_biases for this layer
-                    for (size_t n = 0; n < this_nodes; n++) {
-                        delta_bias[n] = deltas[TID][n];
-                    }
-                    // Same for all the weights, except we compute the delta_weights first
-                    for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-                        for (size_t n = 0; n < this_nodes; n++) {
-                            delta_weight[prev_n * this_nodes + n] = prev_output[prev_n] * deltas[TID][n];
+                            delta_weight[prev_n * this_nodes + n] = prev_output[prev_n] * t_deltas[n];
                         }
                     }
                 }
@@ -301,9 +234,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     }
 
     // Free the layer_outputs (skip the first, as these merely link the input rather than copy 'em)
-    for (size_t s = 0; s < n_samples; s++) {
+    for (size_t t = 0; t < n_threads; t++) {
         for (size_t l = 1; l < n_layers; l++) {
-            free(layer_outputs[s][l]);
+            free(layer_outputs[t][l]);
         }
     }
 
