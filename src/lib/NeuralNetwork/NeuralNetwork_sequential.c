@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/7/2020, 10:00:41 PM
+ *   6/8/2020, 11:12:18 PM
  * Auto updated?
  *   Yes
  *
@@ -33,6 +33,7 @@ extern size_t max(size_t length, const size_t* list);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
+#include <sys/time.h>
 void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
     // Also obtain links to all biases / matrices
     double** biases = nn->biases;
@@ -76,11 +77,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     double* last_delta_bias = delta_biases[n_layers - 2];
     double* last_delta_weight = delta_weights[n_layers - 2];
     for (size_t i = 0; i < n_iterations; i++) {
-        /***** FORWARD PASS *****/
-
-        // Loop through all samples to compute the forward cost
         for (size_t s = 0; s < n_samples; s++) {
-            // Perform a forward pass through the network to be able to say something about the performance
+            /***** FORWARD PASS *****/
 
             // Link the first output to the input
             layer_outputs[0] = inputs[s];
@@ -114,6 +112,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             // Backpropagate the error from the last layer to the first.
             double* sample_expected = expected[s];
 
+            struct timeval start_ms, end_ms;
+            gettimeofday(&start_ms, NULL);
+
             // Do the output layer: compute the deltas
             double* output = layer_outputs[n_layers - 1];
             for (size_t n = 0; n < last_nodes; n++) {
@@ -134,7 +135,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * deltas[n];
                 }
             }
+            gettimeofday(&end_ms, NULL);
             
+            printf(" > (%lu/%lu) Time take output layer backward pass: %fs\n",
+                   s, n_samples,
+                   ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0);
 
             // Then, the rest of the hidden layers
             for (size_t l = n_layers - 2; l > 0; l--) {
