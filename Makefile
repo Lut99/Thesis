@@ -7,6 +7,7 @@ EXT_LIBS=-lm
 
 ifdef DEBUG
 GCC_ARGS+=-g
+NVCC_ARGS+=-g
 endif
 
 ifdef PROFILE
@@ -24,6 +25,7 @@ INCLUDES=-I$(LIB)/include
 
 ifdef BENCHMARK
 GCC_ARGS+=-DBENCHMARK
+NVCC_ARGS+=-DBENCHMARK
 endif
 
 ifdef VARIATION
@@ -80,7 +82,7 @@ $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 digits: $(BIN)/digits.out
 
 digits_cuda: $(BIN)/digits_cuda.out
-	cp -f $(BIN)/digits_cuda.out $(BIN)/digits.out
+	mv $(BIN)/digits_cuda.out $(BIN)/digits.out
 
 testdata: $(BIN)/testdata.out
 
@@ -102,6 +104,14 @@ tests: test_matrix test_nn test_array
 	$(TST_BIN)/test_matrix.out
 	$(TST_BIN)/test_nn.out
 	$(TST_BIN)/test_array.out
+
+$(OBJ)/debug_cuda.o: $(TST)/debug_cuda.c | dirs
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $^ $(EXT_LIBS)
+
+$(TST_BIN)/debug_cuda.out: $(OBJ)/debug_cuda.o $(OBJ)/Support.a $(OBJ)/NeuralNetwork_CUDA_GPU1.o | dirs
+	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
+
+debug_cuda: $(TST_BIN)/debug_cuda.out
 
 plot:
 	gnuplot -e "set terminal png size 600,400; set output 'nn_costs.png'; set yrange[0:]; plot \"nn_costs.dat\""

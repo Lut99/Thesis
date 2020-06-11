@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   6/6/2020, 2:16:59 PM
+ *   6/11/2020, 8:40:02 PM
  * Auto updated?
  *   Yes
  *
@@ -26,6 +26,11 @@
 
 #include "Array.h"
 #include "NeuralNetwork.h"
+
+/* Converts the expanded macros to string. */
+#define STR_IMPL_(x) #x
+/* Is able to convert macros to their string counterpart. */
+#define STR(x) STR_IMPL_(x)
 
 /* If left uncommented, reports and writes the costs. */
 // #define PLOT 1
@@ -176,6 +181,9 @@ int main(int argc, char** argv) {
     // Call the list of used arguments
     printf("Configuration:\n");
     print_opt_args();
+    printf(" - Number of epochs        : " STR(TRAIN_ITERATIONS) "\n");
+    printf(" - Learning rate           : " STR(TRAIN_ETA) "\n");
+    printf(" - Train / test ratio      : " STR(TRAIN_RATIO) "\n");
     printf("\n");
 
     printf("Loading digit dataset \"%s\"...\n", argv[1]);

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/8/2020, 11:12:18 PM
+ *   6/11/2020, 8:42:10 PM
  * Auto updated?
  *   Yes
  *
@@ -33,7 +33,6 @@ extern size_t max(size_t length, const size_t* list);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-#include <sys/time.h>
 void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
     // Also obtain links to all biases / matrices
     double** biases = nn->biases;
@@ -112,9 +111,6 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             // Backpropagate the error from the last layer to the first.
             double* sample_expected = expected[s];
 
-            struct timeval start_ms, end_ms;
-            gettimeofday(&start_ms, NULL);
-
             // Do the output layer: compute the deltas
             double* output = layer_outputs[n_layers - 1];
             for (size_t n = 0; n < last_nodes; n++) {
@@ -135,11 +131,6 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * deltas[n];
                 }
             }
-            gettimeofday(&end_ms, NULL);
-            
-            printf(" > (%lu/%lu) Time take output layer backward pass: %fs\n",
-                   s, n_samples,
-                   ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0);
 
             // Then, the rest of the hidden layers
             for (size_t l = n_layers - 2; l > 0; l--) {

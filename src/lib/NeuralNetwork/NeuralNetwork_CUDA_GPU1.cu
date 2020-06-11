@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/6/2020, 11:09:10 PM
+ *   6/11/2020, 11:46:03 PM
  * Auto updated?
  *   Yes
  *
@@ -251,6 +251,194 @@ __global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch
 
 
 /***** NEURAL NETWORK OPERATIONS *****/
+
+extern "C" void nn_forward_cuda(neural_net* nn, size_t n_samples, double* outputs, double** inputs) {
+    // Shortcut to stuff
+    size_t* nodes_per_layer = nn->nodes_per_layer;
+    size_t n_layers = nn->n_layers;
+    size_t n_weights = nn->n_weights;
+    int threads_per_block = 32;
+    int blocks_per_grid;
+
+    // Create a CUDA-side spot to put the layer outputs in
+    double* layer_outputs[n_layers];
+    size_t layer_outputs_pitches[n_layers];
+    for (size_t l = 0; l < n_layers; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l];
+        size_t h = n_samples;
+        cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
+    }
+    // Copy all sample inputs. Because of the unhappy alginment of inputs, we have to do this manually row-by-row.
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
+        cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
+    // Copy the list of biases
+    double* biases[n_weights];
+    for (size_t l = 0; l < n_layers - 1; l++) {
+        cudaMalloc((void**) (biases + l), sizeof(double) * nodes_per_layer[l + 1]);
+        cudaMemcpy((void*) biases[l], nn->biases[l], sizeof(double) * nodes_per_layer[l + 1], cudaMemcpyHostToDevice);
+    }
+
+    // Copy the list of weights
+    double* weights[n_weights];
+    size_t weights_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        cudaMallocPitch((void**) (weights + l), weights_pitches + l, w, h);
+        cudaMemcpy2D((void*) weights[l], weights_pitches[l], (void*) nn->weights[l], w, w, h, cudaMemcpyHostToDevice);
+    }
+
+    for (size_t l = 1; l < n_layers; l++) {
+        // Call upon the actiation kernel (should do 1797 x 20 elements for first iteration, 1797 x 10 elements for second)
+        blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+        FwdPassKernel<<<blocks_per_grid, threads_per_block>>>(
+            layer_outputs[l], layer_outputs_pitches[l],
+            biases[l - 1],
+            weights[l - 1], weights_pitches[l - 1],
+            layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+            nodes_per_layer[l - 1], nodes_per_layer[l], n_samples
+        );
+    }
+
+    // Copy the last layer back
+    cudaMemcpy2D((void*) outputs, sizeof(double) * nodes_per_layer[n_layers - 1], (void*) layer_outputs[n_layers - 1], layer_outputs_pitches[n_layers - 1], sizeof(double) * nodes_per_layer[n_layers - 1], n_samples, cudaMemcpyDeviceToHost);
+
+    // Simply loop through all layers (except the last one), and clean everything weight & bias related.
+    for (size_t l = 0; l < n_weights; l++) {
+        // Free the device-side stuff
+        cudaFree(biases[l]);
+        cudaFree(weights[l]);
+    }
+
+    // Loop through all layers, including the input as this is copied to the GPU
+    for (size_t l = 0; l < n_layers; l++) {
+        // Free the device-side stuff
+        cudaFree(layer_outputs[l]);
+    }
+}
+
+extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu, double* delta_weights_cpu, size_t n_samples, double** inputs, double** expected) {
+    // Shortcut to stuff
+    size_t* nodes_per_layer = nn->nodes_per_layer;
+    size_t n_layers = nn->n_layers;
+    size_t n_weights = nn->n_weights;
+    int threads_per_block = 32;
+    int blocks_per_grid;
+
+    // Create a CUDA-side spot to put the layer outputs in
+    double* layer_outputs[n_layers];
+    size_t layer_outputs_pitches[n_layers];
+    for (size_t l = 0; l < n_layers; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l];
+        size_t h = n_samples;
+        cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
+    }
+    // Copy all sample inputs. Because of the unhappy alginment of inputs, we have to do this manually row-by-row.
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
+        cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
+    // Copy the list of biases
+    double* biases[n_weights];
+    for (size_t l = 0; l < n_layers - 1; l++) {
+        cudaMalloc((void**) (biases + l), sizeof(double) * nodes_per_layer[l + 1]);
+        cudaMemcpy((void*) biases[l], nn->biases[l], sizeof(double) * nodes_per_layer[l + 1], cudaMemcpyHostToDevice);
+    }
+
+    // Copy the list of weights
+    double* weights[n_weights];
+    size_t weights_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        cudaMallocPitch((void**) (weights + l), weights_pitches + l, w, h);
+        cudaMemcpy2D((void*) weights[l], weights_pitches[l], (void*) nn->weights[l], w, w, h, cudaMemcpyHostToDevice);
+    }
+
+    /* DELTA BIASES */
+
+    // We also have to declare the delta biases. Note that resetting is not needed, as every cell is not updated
+    //   anymore but instead set to.
+    double* delta_biases[n_weights];
+    size_t delta_biases_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t this_nodes = nodes_per_layer[l + 1];
+        cudaMallocPitch((void**) (delta_biases + l), delta_biases_pitches + l, sizeof(double) * this_nodes, n_samples);
+    }
+
+    // Declare the delta weights. Note that we pitch a 3D-array here. Not pretty, but better than
+    //   the endless structs 3D require from us. Note that, just as with the biases, resetting is
+    //   not needed, as every cell is not updated anymore but instead set to.
+    double* delta_weights[n_weights];
+    size_t delta_weights_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        // Prepare CUDA structs for allocation
+        size_t w = nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        size_t d = n_samples;
+        cudaMallocPitch((void**) (delta_weights + l), delta_weights_pitches + l, sizeof(double) * w, h * d);
+    }
+
+    // The expected values are formatted as a 2D, n_samples x nodes_in_output_layer pitched matrix.
+    double* expected_gpu;
+    size_t expected_gpu_pitch;
+    cudaMallocPitch((void**) &expected_gpu, &expected_gpu_pitch, sizeof(double) * nodes_per_layer[n_layers - 1], n_samples);
+    // Copy all expected values for each sample, which we have to do row-by-row due to unfortunate formatting of expected
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) expected_gpu + s * expected_gpu_pitch);
+        cudaMemcpy((void*) ptr, (void*) expected[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
+    // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
+    for (size_t l = 1; l < n_layers; l++) {
+        // Call upon the actiation kernel (should do 1797 x 20 elements for first iteration, 1797 x 10 elements for second)
+        blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+        FwdPassKernel<<<blocks_per_grid, threads_per_block>>>(
+            layer_outputs[l], layer_outputs_pitches[l],
+            biases[l - 1],
+            weights[l - 1], weights_pitches[l - 1],
+            layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+            nodes_per_layer[l - 1], nodes_per_layer[l], n_samples
+        );
+    }
+    
+    size_t l = n_layers - 1;
+    blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+    BckPassOutputKernel<<<blocks_per_grid, threads_per_block>>>(
+        delta_biases[l - 1], delta_biases_pitches[l - 1],
+        delta_weights[l - 1], delta_weights_pitches[l - 1],
+        layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+        layer_outputs[l], layer_outputs_pitches[l],
+        expected_gpu, expected_gpu_pitch,
+        nodes_per_layer[n_layers - 2], nodes_per_layer[n_layers - 1], n_samples
+    );
+
+    // Copy the delta biases 'n' stuff back to the CPU
+    cudaMemcpy2D((void*) delta_biases_cpu, sizeof(double) * nodes_per_layer[l], (void*) delta_biases[l - 1], delta_biases_pitches[l - 1], sizeof(double) * nodes_per_layer[l], n_samples, cudaMemcpyDeviceToHost);
+    cudaMemcpy2D((void*) delta_weights_cpu, sizeof(double) * nodes_per_layer[l], (void*) delta_weights[l - 1], delta_weights_pitches[l - 1], sizeof(double) * nodes_per_layer[l], nodes_per_layer[l - 1] * n_samples, cudaMemcpyDeviceToHost);
+    
+    // Simply loop through all layers (except the last one), and clean everything weight & bias related.
+    for (size_t l = 0; l < n_weights; l++) {
+        // Free the device-side stuff
+        cudaFree(biases[l]);
+        cudaFree(delta_biases[l]);
+        cudaFree(weights[l]);
+        cudaFree(delta_weights[l]);
+    }
+
+    // Loop through all layers, including the input as this is copied to the GPU
+    for (size_t l = 0; l < n_layers; l++) {
+        // Free the device-side stuff
+        cudaFree(layer_outputs[l]);
+    }
+
+    // Finally, clear the expected list
+    cudaFree(expected_gpu);
+}
 
 // Cuda memory help from https://stackoverflow.com/questions/16119943/how-and-when-should-i-use-pitched-pointer-with-the-cuda-api
 extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
