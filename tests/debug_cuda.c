@@ -4,7 +4,7 @@
  * Created:
  *   6/11/2020, 9:31:55 PM
  * Last edited:
- *   6/11/2020, 11:44:57 PM
+ *   6/12/2020, 4:50:46 PM
  * Auto updated?
  *   Yes
  *
@@ -106,16 +106,8 @@ void nn_backward_output(neural_net* nn, double* delta_biases_cpu, double* delta_
     double* delta_biases[nn->n_weights];
     double* delta_weights[nn->n_weights];
     for(size_t l = 0; l < nn->n_weights; l++) {
-        delta_biases[l] = malloc(sizeof(double) * nodes_per_layer[l + 1]);
-        delta_weights[l] = malloc(sizeof(double) * nodes_per_layer[l] * nodes_per_layer[l + 1]);
-
-        // Fill with zeros
-        for (size_t n = 0; n < nodes_per_layer[l + 1]; n++) {
-            delta_biases[l][n] = 0;
-            for (size_t prev_n = 0; prev_n < nodes_per_layer[l]; prev_n++) {
-                delta_weights[l][prev_n * nodes_per_layer[l + 1] + n] = 0;
-            }
-        }
+        delta_biases[l] = malloc(sizeof(double) * n_samples * nodes_per_layer[l + 1]);
+        delta_weights[l] = malloc(sizeof(double) * n_samples * nodes_per_layer[l] * nodes_per_layer[l + 1]);
     }
 
     // Perform the training for n_iterations (always)
@@ -169,13 +161,13 @@ void nn_backward_output(neural_net* nn, double* delta_biases_cpu, double* delta_
 
         // Add all deltas as delta_biases for this layer
         for (size_t n = 0; n < last_nodes; n++) {
-            last_delta_bias[n] += deltas[n];
+            last_delta_bias[s * last_nodes + n] = deltas[n];
         }
         // Same for all the weights, except we compute the delta_weights first
         double* last_prev_output = layer_outputs[n_layers - 2];
         for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
             for (size_t n = 0; n < last_nodes; n++) {
-                last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * deltas[n];
+                last_delta_weight[s * last_prev_nodes * last_nodes + prev_n * last_nodes + n] = last_prev_output[prev_n] * deltas[n];
             }
         }
     }
@@ -280,6 +272,8 @@ int main() {
             }
         }
     }
+
+    printf("Sweet! Backward pass - outputs work as well!\n");
 
     free(delta_weight_normal);
     free(delta_weight_cuda);

@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/11/2020, 11:46:03 PM
+ *   6/12/2020, 4:51:07 PM
  * Auto updated?
  *   Yes
  *
@@ -119,8 +119,8 @@ __global__ void BckPassOutputKernel(double* delta_biases, size_t delta_biases_pi
 
         // Compute the weight updates
         for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-            double* delta_weight_ptr = (double*) ((char*) delta_weights + s * prev_n * delta_weights_pitch) + n;
-            double input_val = *((double*) ((char*) layer_inputs + s * layer_inputs_pitch) + n);
+            double* delta_weight_ptr = (double*) ((char*) delta_weights + s * delta_weights_pitch * prev_nodes + prev_n * delta_weights_pitch) + n;
+            double input_val = *((double*) ((char*) layer_inputs + s * layer_inputs_pitch) + prev_n);
             *delta_weight_ptr = input_val * delta;
         }
     }
@@ -181,8 +181,8 @@ __global__ void BckPassHiddenKernel(double* delta_biases, size_t delta_biases_pi
 
         // Compute the weight updates
         for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
-            double* delta_weight_ptr = (double*) ((char*) delta_weights + s * prev_n * delta_weights_pitch) + n;
-            double input_val = *((double*) ((char*) layer_inputs + s * layer_inputs_pitch) + n);
+            double* delta_weight_ptr = (double*) ((char*) delta_weights + s * delta_weights_pitch * prev_nodes + prev_n * delta_weights_pitch) + n;
+            double input_val = *((double*) ((char*) layer_inputs + s * layer_inputs_pitch) + prev_n);
             *delta_weight_ptr = input_val * delta;
         }
     }
@@ -242,8 +242,8 @@ __global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch
     if (x < next_nodes && y < this_nodes && z < n_samples / 2) {
         // Simply sum this and the next element. Make sure to stay in bounds
         size_t half_H = ceil(n_samples / 2.0);
-        unsigned long* delta_weights_ptr = (unsigned long*) ((char*) delta_weights + z * delta_weights_pitch * next_nodes + y * delta_weights_pitch) + x;
-        unsigned long delta_weights_val = *((unsigned long*) ((char*) delta_weights + (z + half_H) * delta_weights_pitch * next_nodes + y * delta_weights_pitch) + x);
+        unsigned long* delta_weights_ptr = (unsigned long*) ((char*) delta_weights + z * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x;
+        unsigned long delta_weights_val = *((unsigned long*) ((char*) delta_weights + (z + half_H) * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x);
         *delta_weights_ptr += delta_weights_val;
     }
 }
@@ -336,7 +336,7 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         size_t h = n_samples;
         cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
     }
-    // Copy all sample inputs. Because of the unhappy alginment of inputs, we have to do this manually row-by-row.
+    // Copy all sample inputs. Because of the unhappy alignment of inputs, we have to do this manually row-by-row.
     for (size_t s = 0; s < n_samples; s++) {
         double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
         cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);

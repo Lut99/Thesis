@@ -4,7 +4,7 @@
  * Created:
  *   5/24/2020, 9:25:20 PM
  * Last edited:
- *   6/6/2020, 10:41:16 PM
+ *   6/12/2020, 4:08:19 PM
  * Auto updated?
  *   Yes
  *
@@ -89,8 +89,8 @@ __global__ void reduceKernel3D(unsigned long* list, size_t list_pitch,
     if (x < width && y < height && z < depth / 2) {
         // Simply sum this and the next element. Make sure to stay in bounds
         size_t half_N = ceil(depth / 2.0);
-        unsigned long* list_ptr = (unsigned long*) ((char*) list + z * list_pitch * width + y * list_pitch) + x;
-        unsigned long list_val = *((unsigned long*) ((char*) list + (z + half_N) * list_pitch * width + y * list_pitch) + x);
+        unsigned long* list_ptr = (unsigned long*) ((char*) list + z * list_pitch * height + y * list_pitch) + x;
+        unsigned long list_val = *((unsigned long*) ((char*) list + (z + half_N) * list_pitch * height + y * list_pitch) + x);
         // unsigned long old = *list_ptr;
         *list_ptr += list_val;
 
@@ -355,7 +355,7 @@ void reduction_3D(size_t W, size_t H, size_t D) {
 
     // Initialize a 2D matrix
     int max = 50;
-    unsigned long to_reduce[W * H * D];
+    unsigned long* to_reduce = (unsigned long*) malloc(sizeof(unsigned long) * W * H * D);
     for (size_t i = 0; i < W * H * D; i++) {
         to_reduce[i] = rand() % max;
     }
@@ -463,6 +463,9 @@ void reduction_3D(size_t W, size_t H, size_t D) {
     cudaSafe();
 
     time_taken = ((stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec)) / 1000;
+
+    free(to_reduce);
+
     printf("CUDA time taken: %lu ms\n", time_taken);
     printf("CUDA same as correct? ");
     for (size_t y = 0; y < H; y++) {
@@ -483,7 +486,7 @@ int main() {
 
     // reduction_2D();
 
-    reduction_3D(500, 500, 5000);
+    reduction_3D(250, 500, 100);
 
     printf("\n\n\n");
     return 0;
