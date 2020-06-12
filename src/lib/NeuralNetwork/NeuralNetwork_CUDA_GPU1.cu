@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/12/2020, 4:51:07 PM
+ *   6/13/2020, 1:23:36 AM
  * Auto updated?
  *   Yes
  *
@@ -156,17 +156,18 @@ __global__ void BckPassHiddenKernel(double* delta_biases, size_t delta_biases_pi
                                     size_t prev_nodes, size_t this_nodes, size_t next_nodes,
                                     size_t n_samples) {
     // Get the index of this particular thread
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
 
-    int n = i % this_nodes;
-    int s = i / this_nodes;
+    size_t n = i % this_nodes;
+    size_t s = i / this_nodes;
 
     // Only do work if still within range
     if (s < n_samples && n < this_nodes) {
         // Take the weighted sum of all connection of that node with this layer (10 iterations)
         double error = 0;
         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-            double deltas_val = *((double*) ((char*) deltas + s * deltas_pitch) + n);
+
+            double deltas_val = *((double*) ((char*) deltas + s * deltas_pitch) + next_n);
             double weight_val = *((double*) ((char*) weights + n * weights_pitch) + next_n);
             error += deltas_val * weight_val;
         }
@@ -197,7 +198,7 @@ __global__ void BckPassHiddenKernel(double* delta_biases, size_t delta_biases_pi
  *   @param this_nodes: the number of nodes on the current layer
  *   @param n_samples: the number of samples
  */
-__global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch,
+__global__ void BiasReduceKernel(double* delta_biases, size_t delta_biases_pitch,
                                  size_t this_nodes, size_t n_samples) {
     // Get the index of this particular thread
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -210,8 +211,8 @@ __global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch
     if (n < this_nodes && s < n_samples / 2) {
         // Simply sum this and the next element. Make sure to stay in bounds
         size_t half_H = ceil(n_samples / 2.0);
-        unsigned long* delta_biases_ptr = (unsigned long*) ((char*) delta_biases + s * delta_biases_pitch) + n;
-        unsigned long delta_biases_val = *((unsigned long*) ((char*) delta_biases + (s + half_H) * delta_biases_pitch) + n);
+        double* delta_biases_ptr = (double*) ((char*) delta_biases + s * delta_biases_pitch) + n;
+        double delta_biases_val = *((double*) ((char*) delta_biases + (s + half_H) * delta_biases_pitch) + n);
         *delta_biases_ptr += delta_biases_val;
     }
 }
@@ -226,7 +227,7 @@ __global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch
  *   @param next_nodes: the number of nodes on the next layer
  *   @param n_samples: the number of samples
  */
- __global__ void WeightUpdateKernel(double* delta_weights, size_t delta_weights_pitch,
+ __global__ void WeightReduceKernel(double* delta_weights, size_t delta_weights_pitch,
                                     size_t this_nodes, size_t next_nodes,
                                     size_t n_samples) {
     // Get the index of this particular thread
@@ -242,9 +243,67 @@ __global__ void BiasUpdateKernel(double* delta_biases, size_t delta_biases_pitch
     if (x < next_nodes && y < this_nodes && z < n_samples / 2) {
         // Simply sum this and the next element. Make sure to stay in bounds
         size_t half_H = ceil(n_samples / 2.0);
-        unsigned long* delta_weights_ptr = (unsigned long*) ((char*) delta_weights + z * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x;
-        unsigned long delta_weights_val = *((unsigned long*) ((char*) delta_weights + (z + half_H) * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x);
+        double* delta_weights_ptr = (double*) ((char*) delta_weights + z * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x;
+        double delta_weights_val = *((double*) ((char*) delta_weights + (z + half_H) * delta_weights_pitch * this_nodes + y * delta_weights_pitch) + x);
         *delta_weights_ptr += delta_weights_val;
+    }
+}
+
+/* This kernel finally applies the bias updates to the biases. Normally this
+ *   would be a waste, but since the data is already on the GPU and we would
+ *   otherwise have to copy it, this kernel is here.
+ *
+ * Parameters:
+ *   @param biases: the destination vector.
+ *   @param delta_biases: the bias updates to add to the first vector.
+ *   @param this_nodes: the number of nodes for this layer, aka, length (in number of elements) for both vectors.
+ *   @param learning_rate: the learning rate by which to reduce the effect of the updates.
+ */
+ __global__ void BiasUpdateKernel(double* biases, double* delta_biases,
+                                  size_t this_nodes, double learning_rate) {
+     // Get the index of this particular thread
+     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+
+     // Only do work if still within bounds
+     if (i < this_nodes) {
+         // Just add lol
+         biases[i] += learning_rate * delta_biases[i];
+     }
+ }
+
+ /* This kernel finally applies the weight updates. Normally this would be a
+ *   waste, but since the data is already on the GPU and we would otherwise
+ *   have to copy it, this kernel is here.
+ *
+ * Parameters:
+ *   @param weights: the destination matrix containing the existing weights
+ *   @oaram weights_pitch: the pitch of the weight matrix
+ *   @param delta_weights: the source matrix containing the updates
+ *   @oaram delta_weights_pitch: the pitch of the delta_weights matrix
+ *   @param prev_nodes: the number of nodes in the previous layer, aka, the number of rows for both matrices.
+ *   @param this_nodes: the number of nodes in this layer, aka, the number of columns for both matrices.
+ *   @param learning_rate: the learning rate by which to reduce the effect of the updates.
+ */
+ __global__ void WeightUpdateKernel(double* weights, size_t weights_pitch,
+                                    double* delta_weights, size_t delta_weights_pitch,
+                                    size_t prev_nodes, size_t this_nodes, double learning_rate) {
+    // Get the index of this particular thread
+    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    // Decode the i
+    size_t n = i % this_nodes;
+    size_t prev_n = i / this_nodes;
+
+    // Only do work if still within bounds
+    if (n < this_nodes && prev_n < prev_nodes) {
+        // Just add lol
+        double* weights_ptr = (double*) ((char*) weights + prev_n * weights_pitch) + n;
+        double delta_weights_val = *((double*) ((char*) delta_weights + prev_n * delta_weights_pitch) + n);
+        *weights_ptr += learning_rate * delta_weights_val;
+
+        // if (n == 0) {
+        //     printf("Update weight value for (%lu, %lu): %f\n", prev_n, n, delta_weights_val);
+        // }
     }
 }
 
@@ -320,36 +379,30 @@ extern "C" void nn_forward_cuda(neural_net* nn, size_t n_samples, double* output
     }
 }
 
-extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu, double* delta_weights_cpu, size_t n_samples, double** inputs, double** expected) {
-    // Shortcut to stuff
-    size_t* nodes_per_layer = nn->nodes_per_layer;
+extern "C" void nn_backward_cuda(neural_net* nn, double** delta_biases_cpu, double** delta_weights_cpu, size_t n_samples, double** inputs, double** expected) {
+    /***** NN SHORTCUTS *****/
+
     size_t n_layers = nn->n_layers;
     size_t n_weights = nn->n_weights;
-    int threads_per_block = 32;
-    int blocks_per_grid;
+    size_t* nodes_per_layer = nn->nodes_per_layer;
 
-    // Create a CUDA-side spot to put the layer outputs in
-    double* layer_outputs[n_layers];
-    size_t layer_outputs_pitches[n_layers];
-    for (size_t l = 0; l < n_layers; l++) {
-        size_t w = sizeof(double) * nodes_per_layer[l];
-        size_t h = n_samples;
-        cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
-    }
-    // Copy all sample inputs. Because of the unhappy alignment of inputs, we have to do this manually row-by-row.
-    for (size_t s = 0; s < n_samples; s++) {
-        double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
-        cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
-    }
+    
+    /***** GPU MEMORY INITIALISATION *****/
 
-    // Copy the list of biases
+    /* BIASES */
+    
+    // Copy the biases of the network to the GPU. Since the lists have different lengths, it is important to not make it a 2D-array.
     double* biases[n_weights];
     for (size_t l = 0; l < n_layers - 1; l++) {
         cudaMalloc((void**) (biases + l), sizeof(double) * nodes_per_layer[l + 1]);
         cudaMemcpy((void*) biases[l], nn->biases[l], sizeof(double) * nodes_per_layer[l + 1], cudaMemcpyHostToDevice);
     }
 
-    // Copy the list of weights
+
+    /* WEIGHTS */
+
+    // Also copy the weights in practically the same way, except that now the inner values are pitched arrays.
+    //   We store the pitches in a similarly lengthy weights_pitches list.
     double* weights[n_weights];
     size_t weights_pitches[n_weights];
     for (size_t l = 0; l < n_weights; l++) {
@@ -358,6 +411,26 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         cudaMallocPitch((void**) (weights + l), weights_pitches + l, w, h);
         cudaMemcpy2D((void*) weights[l], weights_pitches[l], (void*) nn->weights[l], w, w, h, cudaMemcpyHostToDevice);
     }
+
+
+    /* LAYER OUTPUTS */
+
+    // The layer outputs is for every layer a matrix of samples by nodes_for_that_layer elements.
+    //   Just as with the weights do we use pitches, and create a list to store those. Note that
+    //   only the inputs need to be copied, as the rest serves as a buffer.
+    double* layer_outputs[n_layers];
+    size_t layer_outputs_pitches[n_layers];
+    for (size_t l = 0; l < n_layers; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l];
+        size_t h = n_samples;
+        cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
+    }
+    // Copy all sample inputs. Because of the unhappy alginment of inputs, we have to do this manually row-by-row.
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
+        cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
 
     /* DELTA BIASES */
 
@@ -369,6 +442,9 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         size_t this_nodes = nodes_per_layer[l + 1];
         cudaMallocPitch((void**) (delta_biases + l), delta_biases_pitches + l, sizeof(double) * this_nodes, n_samples);
     }
+
+
+    /* DELTA WEIGHTS */
 
     // Declare the delta weights. Note that we pitch a 3D-array here. Not pretty, but better than
     //   the endless structs 3D require from us. Note that, just as with the biases, resetting is
@@ -383,6 +459,9 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         cudaMallocPitch((void**) (delta_weights + l), delta_weights_pitches + l, sizeof(double) * w, h * d);
     }
 
+
+    /* EXPECTED */
+
     // The expected values are formatted as a 2D, n_samples x nodes_in_output_layer pitched matrix.
     double* expected_gpu;
     size_t expected_gpu_pitch;
@@ -392,6 +471,16 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         double* ptr = (double*) ((char*) expected_gpu + s * expected_gpu_pitch);
         cudaMemcpy((void*) ptr, (void*) expected[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
     }
+
+
+    /***** ITERATIONS *****/
+
+    // Choose block size, but leave computation of the number of blocks to later as these are
+    //   layer-dependent
+    int threads_per_block = 32;
+    int blocks_per_grid;
+
+    /***** FORWARD PASS *****/
 
     // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
     for (size_t l = 1; l < n_layers; l++) {
@@ -405,7 +494,11 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
             nodes_per_layer[l - 1], nodes_per_layer[l], n_samples
         );
     }
-    
+
+
+    /***** BACKWARD PASS *****/
+
+    // Then, compute the error at the output laye (1797 x 10 iterations)
     size_t l = n_layers - 1;
     blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
     BckPassOutputKernel<<<blocks_per_grid, threads_per_block>>>(
@@ -417,10 +510,36 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         nodes_per_layer[n_layers - 2], nodes_per_layer[n_layers - 1], n_samples
     );
 
+    // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
+    for (l = n_layers - 2; l > 0; l--) {
+        blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+        BckPassHiddenKernel<<<blocks_per_grid, threads_per_block>>>(
+            delta_biases[l - 1], delta_biases_pitches[l - 1],
+            delta_weights[l - 1], delta_weights_pitches[l - 1],
+            delta_biases[l], delta_biases_pitches[l],
+            weights[l], weights_pitches[l],
+            layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+            layer_outputs[l], layer_outputs_pitches[l],
+            nodes_per_layer[l - 1], nodes_per_layer[l], nodes_per_layer[l + 1],
+            n_samples
+        );
+    }
+
+
+    /***** CLEANUP *****/
+
+    cudaDeviceSynchronize();
+
+    /* COPY */
+
     // Copy the delta biases 'n' stuff back to the CPU
-    cudaMemcpy2D((void*) delta_biases_cpu, sizeof(double) * nodes_per_layer[l], (void*) delta_biases[l - 1], delta_biases_pitches[l - 1], sizeof(double) * nodes_per_layer[l], n_samples, cudaMemcpyDeviceToHost);
-    cudaMemcpy2D((void*) delta_weights_cpu, sizeof(double) * nodes_per_layer[l], (void*) delta_weights[l - 1], delta_weights_pitches[l - 1], sizeof(double) * nodes_per_layer[l], nodes_per_layer[l - 1] * n_samples, cudaMemcpyDeviceToHost);
-    
+    for (size_t l = 0; l < n_weights; l++) {
+        cudaMemcpy2D((void*) delta_biases_cpu[l], sizeof(double) * nodes_per_layer[l + 1], (void*) delta_biases[l], delta_biases_pitches[l], sizeof(double) * nodes_per_layer[l + 1], n_samples, cudaMemcpyDeviceToHost);
+        cudaMemcpy2D((void*) delta_weights_cpu[l], sizeof(double) * nodes_per_layer[l + 1], (void*) delta_weights[l], delta_weights_pitches[l], sizeof(double) * nodes_per_layer[l + 1], nodes_per_layer[l] * n_samples, cudaMemcpyDeviceToHost);
+    }
+
+    /* BIASES & WEIGHTS */
+
     // Simply loop through all layers (except the last one), and clean everything weight & bias related.
     for (size_t l = 0; l < n_weights; l++) {
         // Free the device-side stuff
@@ -430,15 +549,276 @@ extern "C" void nn_backward_output_cuda(neural_net* nn, double* delta_biases_cpu
         cudaFree(delta_weights[l]);
     }
 
+    
+    /* LAYER OUTPUTS */
+
     // Loop through all layers, including the input as this is copied to the GPU
     for (size_t l = 0; l < n_layers; l++) {
         // Free the device-side stuff
         cudaFree(layer_outputs[l]);
     }
 
+
+    /* EXPECTED */
+
     // Finally, clear the expected list
     cudaFree(expected_gpu);
 }
+
+extern "C" void nn_full_cuda(neural_net* nn, double** weights_cpu, double** biases_cpu, size_t n_samples, double** inputs, double** expected, double learning_rate) {
+    /***** NN SHORTCUTS *****/
+
+    size_t n_layers = nn->n_layers;
+    size_t n_weights = nn->n_weights;
+    size_t* nodes_per_layer = nn->nodes_per_layer;
+
+    
+    /***** GPU MEMORY INITIALISATION *****/
+
+    /* BIASES */
+    
+    // Copy the biases of the network to the GPU. Since the lists have different lengths, it is important to not make it a 2D-array.
+    double* biases[n_weights];
+    for (size_t l = 0; l < n_layers - 1; l++) {
+        cudaMalloc((void**) (biases + l), sizeof(double) * nodes_per_layer[l + 1]);
+        cudaMemcpy((void*) biases[l], nn->biases[l], sizeof(double) * nodes_per_layer[l + 1], cudaMemcpyHostToDevice);
+    }
+
+
+    /* WEIGHTS */
+
+    // Also copy the weights in practically the same way, except that now the inner values are pitched arrays.
+    //   We store the pitches in a similarly lengthy weights_pitches list.
+    double* weights[n_weights];
+    size_t weights_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        cudaMallocPitch((void**) (weights + l), weights_pitches + l, w, h);
+        cudaMemcpy2D((void*) weights[l], weights_pitches[l], (void*) nn->weights[l], w, w, h, cudaMemcpyHostToDevice);
+    }
+
+
+    /* LAYER OUTPUTS */
+
+    // The layer outputs is for every layer a matrix of samples by nodes_for_that_layer elements.
+    //   Just as with the weights do we use pitches, and create a list to store those. Note that
+    //   only the inputs need to be copied, as the rest serves as a buffer.
+    double* layer_outputs[n_layers];
+    size_t layer_outputs_pitches[n_layers];
+    for (size_t l = 0; l < n_layers; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l];
+        size_t h = n_samples;
+        cudaMallocPitch((void**) layer_outputs + l, layer_outputs_pitches + l, w, h);
+    }
+    // Copy all sample inputs. Because of the unhappy alginment of inputs, we have to do this manually row-by-row.
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) layer_outputs[0] + s * layer_outputs_pitches[0]);
+        cudaMemcpy((void*) ptr, (void*) inputs[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
+
+    /* DELTA BIASES */
+
+    // We also have to declare the delta biases. Note that resetting is not needed, as every cell is not updated
+    //   anymore but instead set to.
+    double* delta_biases[n_weights];
+    size_t delta_biases_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t this_nodes = nodes_per_layer[l + 1];
+        cudaMallocPitch((void**) (delta_biases + l), delta_biases_pitches + l, sizeof(double) * this_nodes, n_samples);
+    }
+
+
+    /* DELTA WEIGHTS */
+
+    // Declare the delta weights. Note that we pitch a 3D-array here. Not pretty, but better than
+    //   the endless structs 3D require from us. Note that, just as with the biases, resetting is
+    //   not needed, as every cell is not updated anymore but instead set to.
+    double* delta_weights[n_weights];
+    size_t delta_weights_pitches[n_weights];
+    for (size_t l = 0; l < n_weights; l++) {
+        // Prepare CUDA structs for allocation
+        size_t w = nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        size_t d = n_samples;
+        cudaMallocPitch((void**) (delta_weights + l), delta_weights_pitches + l, sizeof(double) * w, h * d);
+    }
+
+
+    /* EXPECTED */
+
+    // The expected values are formatted as a 2D, n_samples x nodes_in_output_layer pitched matrix.
+    double* expected_gpu;
+    size_t expected_gpu_pitch;
+    cudaMallocPitch((void**) &expected_gpu, &expected_gpu_pitch, sizeof(double) * nodes_per_layer[n_layers - 1], n_samples);
+    // Copy all expected values for each sample, which we have to do row-by-row due to unfortunate formatting of expected
+    for (size_t s = 0; s < n_samples; s++) {
+        double* ptr = (double*) ((char*) expected_gpu + s * expected_gpu_pitch);
+        cudaMemcpy((void*) ptr, (void*) expected[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+    }
+
+
+    /***** ITERATIONS *****/
+
+    // Choose block size, but leave computation of the number of blocks to later as these are
+    //   layer-dependent
+    int threads_per_block = 32;
+    int blocks_per_grid;
+
+    /***** FORWARD PASS *****/
+
+    // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
+    for (size_t l = 1; l < n_layers; l++) {
+        // Call upon the actiation kernel (should do 1797 x 20 elements for first iteration, 1797 x 10 elements for second)
+        blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+        FwdPassKernel<<<blocks_per_grid, threads_per_block>>>(
+            layer_outputs[l], layer_outputs_pitches[l],
+            biases[l - 1],
+            weights[l - 1], weights_pitches[l - 1],
+            layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+            nodes_per_layer[l - 1], nodes_per_layer[l], n_samples
+        );
+    }
+
+
+    /***** BACKWARD PASS *****/
+
+    // Then, compute the error at the output laye (1797 x 10 iterations)
+    size_t l = n_layers - 1;
+    blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+    BckPassOutputKernel<<<blocks_per_grid, threads_per_block>>>(
+        delta_biases[l - 1], delta_biases_pitches[l - 1],
+        delta_weights[l - 1], delta_weights_pitches[l - 1],
+        layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+        layer_outputs[l], layer_outputs_pitches[l],
+        expected_gpu, expected_gpu_pitch,
+        nodes_per_layer[n_layers - 2], nodes_per_layer[n_layers - 1], n_samples
+    );
+
+    // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
+    for (l = n_layers - 2; l > 0; l--) {
+        blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
+        BckPassHiddenKernel<<<blocks_per_grid, threads_per_block>>>(
+            delta_biases[l - 1], delta_biases_pitches[l - 1],
+            delta_weights[l - 1], delta_weights_pitches[l - 1],
+            delta_biases[l], delta_biases_pitches[l],
+            weights[l], weights_pitches[l],
+            layer_outputs[l - 1], layer_outputs_pitches[l - 1],
+            layer_outputs[l], layer_outputs_pitches[l],
+            nodes_per_layer[l - 1], nodes_per_layer[l], nodes_per_layer[l + 1],
+            n_samples
+        );
+    }
+    
+    /***** BIAS & WEIGHT UPDATES *****/
+        
+    // Start with the biases
+    for (size_t l = 0; l < n_weights; l++) {
+        // Get some shortcuts
+        double* delta_biases_l = delta_biases[l];
+        size_t delta_biases_pitch = delta_biases_pitches[l];
+        double* delta_weights_l = delta_weights[l];
+        size_t delta_weights_pitch = delta_weights_pitches[l];
+        size_t prev_nodes = nodes_per_layer[l];
+        size_t this_nodes = nodes_per_layer[l + 1];
+
+        // Use the recursive kernel call to sum all columns in the delta_biases array
+        size_t to_do = n_samples;
+        while (to_do > 1) {
+            // Next, launch the kernel
+            blocks_per_grid = ceil((to_do * this_nodes) / (double) threads_per_block);
+            BiasReduceKernel<<<blocks_per_grid, threads_per_block>>>(
+                delta_biases_l, delta_biases_pitch,
+                this_nodes, n_samples
+            );
+
+            // Don't forget to decrease to_do
+            to_do = ceil(to_do / 2.0);
+        }
+
+        // Add the summed list of bias updates to the actual list of biases
+        blocks_per_grid = ceil(this_nodes / (double) threads_per_block);
+        BiasUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+            biases[l], delta_biases_l,
+            this_nodes, learning_rate
+        );
+
+        // Use the recursive kernel call to sum all columns in the delta_biases array
+        to_do = n_samples;
+        while (to_do > 1) {
+            // Next, launch the kernel
+            blocks_per_grid = ceil((to_do * this_nodes * prev_nodes) / (double) threads_per_block);
+            WeightReduceKernel<<<blocks_per_grid, threads_per_block>>>(
+                delta_weights_l, delta_weights_pitch,
+                prev_nodes, this_nodes, n_samples
+            );
+
+            // Don't forget to decrease to_do
+            to_do = ceil(to_do / 2.0);
+        }
+        
+        // Finally, add the summed matrix of weight updates to the actual matrix of weights
+        blocks_per_grid = ceil(this_nodes / (double) threads_per_block);
+        WeightUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+            weights[l], weights_pitches[l],
+            delta_weights_l, delta_weights_pitch,
+            prev_nodes, this_nodes, learning_rate
+        );
+    }
+
+
+    /***** CLEANUP *****/
+
+    cudaDeviceSynchronize();
+
+    /* COPY */
+
+    // Copy the resulting weights and biases back to the CPU-side
+    for (size_t l = 0; l < n_weights; l++) {
+        size_t w = sizeof(double) * nodes_per_layer[l + 1];
+        size_t h = nodes_per_layer[l];
+        cudaMemcpy((void*) biases_cpu[l], (void*) biases[l], w, cudaMemcpyDeviceToHost);
+        cudaMemcpy2D((void*) weights_cpu[l], w, (void*) weights[l], weights_pitches[l], w, h, cudaMemcpyDeviceToHost);
+    }
+
+    /* BIASES & WEIGHTS */
+
+    printf("Check 2\n");
+
+    // Simply loop through all layers (except the last one), and clean everything weight & bias related.
+    for (size_t l = 0; l < n_weights; l++) {
+        // Free the device-side stuff
+        printf("l : %lu\n", l);
+        cudaFree(biases[l]);
+        printf("  Check 2.1\n");
+        cudaFree(delta_biases[l]);
+        printf("  Check 2.2\n");
+        cudaFree(weights[l]);
+        printf("  Check 2.3\n");
+        cudaFree(delta_weights[l]);
+        printf("  Check 2.4\n");
+    }
+
+    printf("Check 3\n");
+
+    
+    /* LAYER OUTPUTS */
+
+    // Loop through all layers, including the input as this is copied to the GPU
+    for (size_t l = 0; l < n_layers; l++) {
+        // Free the device-side stuff
+        cudaFree(layer_outputs[l]);
+    }
+
+
+    /* EXPECTED */
+
+    // Finally, clear the expected list
+    cudaFree(expected_gpu);
+}
+
+
 
 // Cuda memory help from https://stackoverflow.com/questions/16119943/how-and-when-should-i-use-pitched-pointer-with-the-cuda-api
 extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
@@ -581,7 +961,7 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
                 delta_biases[l - 1], delta_biases_pitches[l - 1],
                 delta_weights[l - 1], delta_weights_pitches[l - 1],
                 delta_biases[l], delta_biases_pitches[l],
-                weights[l - 1], weights_pitches[l - 1],
+                weights[l], weights_pitches[l],
                 layer_outputs[l - 1], layer_outputs_pitches[l - 1],
                 layer_outputs[l], layer_outputs_pitches[l],
                 nodes_per_layer[l - 1], nodes_per_layer[l], nodes_per_layer[l + 1],
@@ -599,15 +979,15 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
             size_t delta_biases_pitch = delta_biases_pitches[l];
             double* delta_weights_l = delta_weights[l];
             size_t delta_weights_pitch = delta_weights_pitches[l];
-            size_t this_nodes = nodes_per_layer[l + 1];
             size_t prev_nodes = nodes_per_layer[l];
+            size_t this_nodes = nodes_per_layer[l + 1];
 
             // Use the recursive kernel call to sum all columns in the delta_biases array
             size_t to_do = n_samples;
             while (to_do > 1) {
                 // Next, launch the kernel
                 blocks_per_grid = ceil((to_do * this_nodes) / (double) threads_per_block);
-                BiasUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+                BiasReduceKernel<<<blocks_per_grid, threads_per_block>>>(
                     delta_biases_l, delta_biases_pitch,
                     this_nodes, n_samples
                 );
@@ -616,15 +996,19 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
                 to_do = ceil(to_do / 2.0);
             }
 
-            // Copy the resulting list of values to the correct list of biases
-            cudaMemcpy(biases[l], delta_biases_l, sizeof(unsigned long) * this_nodes, cudaMemcpyDeviceToDevice);
+            // Add the summed list of bias updates to the actual list of biases
+            blocks_per_grid = ceil(this_nodes / (double) threads_per_block);
+            BiasUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+                biases[l], delta_biases_l,
+                this_nodes, learning_rate
+            );
 
             // Use the recursive kernel call to sum all columns in the delta_biases array
             to_do = n_samples;
             while (to_do > 1) {
                 // Next, launch the kernel
                 blocks_per_grid = ceil((to_do * this_nodes * prev_nodes) / (double) threads_per_block);
-                WeightUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+                WeightReduceKernel<<<blocks_per_grid, threads_per_block>>>(
                     delta_weights_l, delta_weights_pitch,
                     prev_nodes, this_nodes, n_samples
                 );
@@ -632,14 +1016,21 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
                 // Don't forget to decrease to_do
                 to_do = ceil(to_do / 2.0);
             }
-
-            // Copy the resulting matrix of values to the correct list of biases
-            cudaMemcpy2D(weights[l], weights_pitches[l], delta_weights_l, delta_weights_pitch, sizeof(double) * this_nodes, prev_nodes * n_samples, cudaMemcpyDeviceToDevice);
+            
+            // Finally, add the summed matrix of weight updates to the actual matrix of weights
+            blocks_per_grid = ceil(this_nodes / (double) threads_per_block);
+            WeightUpdateKernel<<<blocks_per_grid, threads_per_block>>>(
+                weights[l], weights_pitches[l],
+                delta_weights_l, delta_weights_pitch,
+                prev_nodes, this_nodes, learning_rate
+            );
         }
     }
 
 
     /***** CLEANUP *****/
+
+    cudaDeviceSynchronize();
 
     /* COPY */
 
@@ -647,7 +1038,7 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
     for (size_t l = 0; l < n_weights; l++) {
         size_t w = sizeof(double) * nodes_per_layer[l + 1];
         size_t h = nodes_per_layer[l];
-        cudaMemcpy((void*) nn->biases[l], (void*) biases[l], sizeof(double) * nodes_per_layer[l], cudaMemcpyDeviceToHost);
+        cudaMemcpy((void*) nn->biases[l], (void*) biases[l], w, cudaMemcpyDeviceToHost);
         cudaMemcpy2D((void*) nn->weights[l], w, (void*) weights[l], weights_pitches[l], w, h, cudaMemcpyDeviceToHost);
     }
 
