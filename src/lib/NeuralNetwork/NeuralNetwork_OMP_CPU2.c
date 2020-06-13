@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/8/2020, 11:12:06 PM
+ *   6/13/2020, 2:36:15 PM
  * Auto updated?
  *   Yes
  *
@@ -51,7 +51,6 @@ extern size_t max(size_t length, const size_t* list);
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
-#include <sys/time.h>
 void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
     // Also obtain links to all biases / matrices
     double** biases = nn->biases;
@@ -61,11 +60,10 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     size_t n_layers = nn->n_layers;
     size_t* nodes_per_layer = nn->nodes_per_layer;
     
-    // Initialize the temporary delta memory to the correct size, one for each thread
-    double* deltas[n_threads];
-    for (size_t t = 0; t < n_threads; t++) {
-        deltas[t] = malloc(sizeof(double) * max(n_layers, nodes_per_layer));
-    }
+    // Initialize the temporary delta memory (and previous list) to the correct size, one for each thread
+    size_t deltas_size = max(n_layers, nodes_per_layer);
+    double* deltas = malloc(sizeof(double) * n_threads * deltas_size);
+    double* prev_deltas = malloc(sizeof(double) * n_threads * deltas_size);
 
     // Create a list that is used to store intermediate outputs. The first input layer (=first column)
     //   is linked and not copied to the input data
@@ -102,7 +100,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         #pragma omp parallel
         {
             int TID = omp_get_thread_num();
-            double* t_deltas = deltas[TID];
+            double* t_deltas = deltas + TID * deltas_size;
+            double* t_prev_deltas = prev_deltas + TID * deltas_size;
             double** t_layer_outputs = layer_outputs[TID];
 
             #pragma omp for schedule(static)
@@ -141,14 +140,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 // Backpropagate the error from the last layer to the first.
                 double* sample_expected = expected[s];
 
-                struct timeval start_ms, end_ms;
-                gettimeofday(&start_ms, NULL);
-
                 // Do the output layer: compute the deltas
                 double* output = t_layer_outputs[n_layers - 1];
                 for (size_t n = 0; n < last_nodes; n++) {
                     double output_val = output[n];
-                    t_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
+                    t_prev_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
                 }
 
                 // Do the output layer: compute the bias & weight updates
@@ -156,21 +152,16 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 {  
                     // Add all deltas as delta_biases for this layer
                     for (size_t n = 0; n < last_nodes; n++) {
-                        last_delta_bias[n] += t_deltas[n];
+                        last_delta_bias[n] += t_prev_deltas[n];
                     }
                     // Same for all the weights, except we compute the delta_weights first
                     double* last_prev_output = t_layer_outputs[n_layers - 2];
                     for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
                         for (size_t n = 0; n < last_nodes; n++) {
-                            last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * t_deltas[n];
+                            last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * t_prev_deltas[n];
                         }
                     }
                 }
-                gettimeofday(&end_ms, NULL);
-                
-                printf(" > (%lu/%lu) Time take output layer backward pass: %fs\n",
-                    s, n_samples,
-                    ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0);
                 
 
                 // Then, the rest of the hidden layers
@@ -189,7 +180,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         // Take the weighted sum of all connection of that node with this layer
                         double error = 0;
                         for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                            error += t_deltas[next_n] * weight_next[n * next_nodes + next_n];
+                            error += t_prev_deltas[next_n] * weight_next[n * next_nodes + next_n];
                         }
 
                         // Multiply the error with the derivative of the activation function to find the result
@@ -210,6 +201,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                             }
                         }
                     }
+
+                    // Swap the two delta lists
+                    double* temp = t_deltas;
+                    t_deltas = t_prev_deltas;
+                    t_prev_deltas = temp;
                 }
             }
 
@@ -254,9 +250,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     }
 
     // Cleanup the deltas
-    for (size_t t = 0; t < n_threads; t++) {
-        free(deltas[t]);
-    }
+    free(deltas);
+    free(prev_deltas);
 }
 
 

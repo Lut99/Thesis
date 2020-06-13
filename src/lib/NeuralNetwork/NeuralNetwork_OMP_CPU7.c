@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/4/2020, 8:51:26 PM
+ *   6/13/2020, 2:53:05 PM
  * Auto updated?
  *   Yes
  *
@@ -62,10 +62,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     size_t* nodes_per_layer = nn->nodes_per_layer;
     
     // Initialize the temporary delta memory to the correct size, one for every sample
-    double* deltas[n_samples];
-    for (size_t s = 0; s < n_samples; s++) {
-        deltas[s] = malloc(sizeof(double) * max(n_layers, nodes_per_layer));
-    }
+    size_t deltas_size = max(n_layers, nodes_per_layer);
+    double* deltas = malloc(sizeof(double) * n_samples * deltas_size);
+    double* prev_deltas = malloc(sizeof(double) * n_samples * deltas_size);
 
     // Create a list that is used to store intermediate outputs. Note that, unlike other variations,
     //   the layer_outputs is transposed (so layers on the rows rather than samples). Aside from cache
@@ -141,7 +140,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         for (size_t s = 0; s < n_samples; s++) {
             for (size_t n = 0; n < this_nodes; n++) {
                 double output_val = this_outputs[s * this_nodes + n];
-                deltas[s][n] = (expected[s][n] - output_val) * output_val * (1 - output_val);
+                prev_deltas[s * deltas_size + n] = (expected[s][n] - output_val) * output_val * (1 - output_val);
             }
         }
 
@@ -150,18 +149,18 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         double* delta_weight = delta_weights[n_layers - 2];
         double* prev_outputs = layer_outputs[n_layers - 2];
         for (size_t s = 0; s < n_samples; s++) {
-            double* sample_deltas = deltas[s];
+            double* sample_prev_deltas = prev_deltas + s * deltas_size;
             
             // Update the delta biases
             for (size_t n = 0; n < this_nodes; n++) {
-                delta_bias[n] += sample_deltas[n];
+                delta_bias[n] += sample_prev_deltas[n];
             }
 
             // Also do the weights but more cache-friendly
             double* sample_outputs = prev_outputs + s * prev_nodes;
             for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
                 for (size_t n = 0; n < this_nodes; n++) {
-                    delta_weight[prev_n * this_nodes + n] += sample_outputs[prev_n] * sample_deltas[n];
+                    delta_weight[prev_n * this_nodes + n] += sample_outputs[prev_n] * sample_prev_deltas[n];
                 }
             }
         }
@@ -183,12 +182,13 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             for (size_t s = 0; s < n_samples; s++) {
                 // Loop through all nodes in this layer to compute their deltas by summing all deltas of the next layer in a weighted fashion
                 for (size_t n = 0; n < this_nodes; n++) {
-                    double* sample_deltas = deltas[s];
+                    double* sample_prev_deltas = prev_deltas + s * deltas_size;
+                    double* sample_deltas = deltas + s * deltas_size;
 
                     // Take the weighted sum of all connection of that node with this layer (10 iterations)
                     double error = 0;
                     for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                        error += sample_deltas[next_n] * weight[n * next_nodes + next_n];
+                        error += sample_prev_deltas[next_n] * weight[n * next_nodes + next_n];
                     }
 
                     // Multiply the error with the derivative of the activation function to find the result
@@ -199,7 +199,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
             // Use those to update the change in biases and weights (1797 x 20 iterations, non-paralellizable)
             for (size_t s = 0; s < n_samples; s++) {
-                double* sample_deltas = deltas[s];
+                double* sample_deltas = deltas + s * deltas_size;
                 
                 // Update the delta biases
                 for (size_t n = 0; n < this_nodes; n++) {
@@ -214,6 +214,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     }
                 }
             }
+
+            // Swap the deltas and prev_deltas
+            double* temp = deltas;
+            deltas = prev_deltas;
+            prev_deltas = temp;
         }
 
         // Actually update the weights, and reset the delta updates to 0 for next iteration (2 iterations)
@@ -253,9 +258,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     }
 
     // Cleanup the deltas
-    for (size_t s = 0; s < n_samples; s++) {
-        free(deltas[s]);
-    }
+    free(deltas);
+    free(prev_deltas);
 }
 
 

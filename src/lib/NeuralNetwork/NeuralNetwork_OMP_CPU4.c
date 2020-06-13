@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/7/2020, 10:32:33 PM
+ *   6/13/2020, 2:41:11 PM
  * Auto updated?
  *   Yes
  *
@@ -29,10 +29,6 @@
 #define WEIGHTS_MAX 3.0
 #define BIAS_MIN -3.0
 #define BIAS_MAX 3.0
-
-
-/***** OPTIONAL PARAMETERS *****/
-static unsigned int n_threads = 16;
 
 
 /***** OPENMP DECLARATIONS *****/
@@ -60,6 +56,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     
     // Initialize the temporary delta memory to the correct size
     double* deltas = malloc(sizeof(double) * max(n_layers, nodes_per_layer));
+    double* prev_deltas = malloc(sizeof(double) * max(n_layers, nodes_per_layer));
 
     // Create a list that is used to store intermediate outputs. The first input layer (=first column)
     //   is linked and not copied to the input data
@@ -135,7 +132,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             #pragma omp simd
             for (size_t n = 0; n < last_nodes; n++) {
                 double output_val = output[n];
-                deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
+                prev_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
             }
 
             // Do the output layer: compute the bias & weight updates
@@ -143,14 +140,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             // Add all deltas as delta_biases for this layer
             #pragma omp simd
             for (size_t n = 0; n < last_nodes; n++) {
-                last_delta_bias[n] += deltas[n];
+                last_delta_bias[n] += prev_deltas[n];
             }
             // Same for all the weights, except we compute the delta_weights first
             double* last_prev_output = layer_outputs[n_layers - 2];
             for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
                 #pragma omp simd
                 for (size_t n = 0; n < last_nodes; n++) {
-                    last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * deltas[n];
+                    last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * prev_deltas[n];
                 }
             }
             
@@ -172,7 +169,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     double error = 0;
                     #pragma omp simd
                     for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                        error += deltas[next_n] * weight_next[n * next_nodes + next_n];
+                        error += prev_deltas[next_n] * weight_next[n * next_nodes + next_n];
                     }
 
                     // Multiply the error with the derivative of the activation function to find the result
@@ -192,6 +189,11 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         delta_weight[prev_n * this_nodes + n] += prev_output[prev_n] * deltas[n];
                     }
                 }
+
+                // Swap the two deltas
+                double* temp = deltas;
+                deltas = prev_deltas;
+                prev_deltas = temp;
             }
         }
 
@@ -235,6 +237,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
     // Cleanup the deltas
     free(deltas);
+    free(prev_deltas);
 }
 
 
@@ -242,16 +245,12 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 /***** OTHER TOOLS *****/
 
 void parse_opt_args(int argc, char** argv) {
-    // Parse and set number of threads as first argument
-    if (argc >= 1) {
-        // Set the number of threads
-        n_threads = atoi(argv[0]);
-    }
-    omp_set_num_threads(n_threads);
+    // Just ignore the arguments
+    (void) argc;
+    (void) argv;
 }
 
 void print_opt_args() {
     printf(" - Variation               : OpenMP CPU 4 (SIMD only)\n");
-    printf(" - Number of threads       : %u\n", n_threads);
 }
 
