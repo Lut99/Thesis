@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/13/2020, 2:24:26 PM
+ *   6/13/2020, 2:57:59 PM
  * Auto updated?
  *   Yes
  *
@@ -22,7 +22,7 @@ extern "C" {
 
 /***** GLOBALS *****/
 
-static unsigned int threads_per_block = 32;
+static unsigned int threads_per_block = 64;
 
 
 /***** IDEAS *****/
