@@ -105,7 +105,7 @@ def compile(var_ID):
         exit(-1)
 
 
-def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
+def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
     avg_runtime = 0
     for i in range(iterations):
         if len(params) > 0:
@@ -131,6 +131,16 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
     if len(params) > 0:
         print("   ", end="")
     print(f"       > Average: {avg_runtime / iterations} seconds")
+
+
+def vary_param(outputfile, var_ID, iterations, params, param_to_vary, param_values, das_reservation):
+    # Loop through the param values
+    for p_value in param_values:
+        # Update the value for that parameter
+        params[param_to_vary] = p_value
+
+        # Run a benchmark with this value
+        run_benchmark(outputfile, var_ID, iterations, params, das_reservation)
 
 
 def main(outputpath, variations, iterations, das_reservation, args):
@@ -223,23 +233,27 @@ def main(outputpath, variations, iterations, das_reservation, args):
             print("      Running...")
             i = 0
             total = len(args.hidden) * len(args.nodes) * len(args.epochs) * len(args.samples) * len(args.sample_size) * len(args.classes)
-            for n_hidden_layers in args.hidden:
-                for nodes_per_layer in args.nodes:
-                    for n_epochs in args.epochs:
-                        for n_samples in args.samples:
-                            for sample_size in args.sample_size:
-                                for n_classes in args.classes:
-                                    i += 1
-                                    param_set = {
-                                        "n_hidden_layers": n_hidden_layers,
-                                        "nodes_per_layer": nodes_per_layer,
-                                        "n_epochs": n_epochs,
-                                        "n_samples": n_samples,
-                                        "sample_size": sample_size,
-                                        "n_classes": n_classes,
-                                    }
-                                    print(f"       > ({i}/{total}) Params: {param_set}")
-                                    run_benchmark(output, seq, iterations, param_set, das_reservation)
+            for header in HEADERS:
+                if header == "num_threads": continue
+                # Vary this parameter
+                vary_param(output, seq, iterations, )
+            # for n_hidden_layers in args.hidden:
+            #     for nodes_per_layer in args.nodes:
+            #         for n_epochs in args.epochs:
+            #             for n_samples in args.samples:
+            #                 for sample_size in args.sample_size:
+            #                     for n_classes in args.classes:
+            #                         i += 1
+            #                         param_set = {
+            #                             "n_hidden_layers": n_hidden_layers,
+            #                             "nodes_per_layer": nodes_per_layer,
+            #                             "n_epochs": n_epochs,
+            #                             "n_samples": n_samples,
+            #                             "sample_size": sample_size,
+            #                             "n_classes": n_classes,
+            #                         }
+            #                         print(f"       > ({i}/{total}) Params: {param_set}")
+            #                         run_benchmark(output, seq, iterations, param_set, das_reservation)
             print("      Done")
         print("Done\n")
 

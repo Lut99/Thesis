@@ -4,7 +4,7 @@
  * Created:
  *   6/2/2020, 3:40:16 PM
  * Last edited:
- *   6/7/2020, 10:06:23 PM
+ *   6/14/2020, 2:48:12 PM
  * Auto updated?
  *   Yes
  *
@@ -39,7 +39,7 @@
 
 #define DEFAULT_EPOCHS 20000
 #define DEFAULT_LEARNING_RATE 0.005
-#define DEFAULT_N_SAMPLES 10000
+#define DEFAULT_N_SAMPLES 1437
 #define DEFAULT_SAMPLE_SIZE 64
 #define DEFAULT_N_CLASSES 10
 #define DEFAULT_N_HIDDEN_LAYERS 1
@@ -522,26 +522,26 @@ int main(int argc, char** argv) {
     #endif
 
     // Declare some time structs
+    #ifndef BENCHMARK
     struct timeval start_ms, end_ms;
     clock_t start, end;
 
     // Start recording the time
     start = clock();
     gettimeofday(&start_ms, NULL);
+    #endif
 
     // Run the training
     nn_train(nn, opts.n_samples, dataset, classes, opts.learning_rate, opts.epochs);
 
     // Stop recording the time
+    #ifndef BENCHMARK
     gettimeofday(&end_ms, NULL);
     end = clock();
+    #endif
 
     // Print the results
-    #ifdef BENCHMARK
-    printf("%f,%f",
-           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
-           (end - start) / (double) CLOCKS_PER_SEC);
-    #else
+    #ifndef BENCHMARK
     printf(" Done (%f seconds, %f seconds CPU time)\n",
            ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
            (end - start) / (double) CLOCKS_PER_SEC);

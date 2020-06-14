@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   6/13/2020, 12:55:42 AM
+ *   6/14/2020, 1:52:07 PM
  * Auto updated?
  *   Yes
  *
@@ -323,8 +323,10 @@ int main(int argc, char** argv) {
     neural_net* nn = create_nn(64, 1, hidden_layer_nodes, n_classes);
 
     // Train the neural network for ITERATIONS iterations
+    #ifndef BENCHMARK
     struct timeval start_ms, end_ms;
     clock_t start, end;
+    #endif
     #ifdef PLOT
     printf("  Training...\n");
     gettimeofday(&start_ms, NULL);
@@ -341,17 +343,13 @@ int main(int argc, char** argv) {
     #else
     #ifndef BENCHMARK
     printf("  Training...\n");
-    #endif
     gettimeofday(&start_ms, NULL);
     start = clock();
+    #endif
     nn_train(nn, training_size, digits_train, classes_train, TRAIN_ETA, TRAIN_ITERATIONS);
+    #ifndef BENCHMARK
     end = clock();
     gettimeofday(&end_ms, NULL);
-    #ifdef BENCHMARK
-    printf("%f,%f",
-           ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
-           (end - start) / (double) CLOCKS_PER_SEC);
-    #else
     printf("  Time taken: %f seconds / CPU time taken: %f seconds\n\n",
            ((end_ms.tv_sec - start_ms.tv_sec) * 1000000 + (end_ms.tv_usec - start_ms.tv_usec)) / 1000000.0,
            (end - start) / (double) CLOCKS_PER_SEC);
@@ -360,7 +358,6 @@ int main(int argc, char** argv) {
 
     #ifndef BENCHMARK
     printf("Validating network...\n");
-    #endif
 
     // Test the network
     size_t last_nodes = nn->nodes_per_layer[nn->n_layers - 1];
@@ -372,7 +369,6 @@ int main(int argc, char** argv) {
 
     // Compute the accuracy
     double accuracy = compute_accuracy(testing_size, last_nodes, outputs, classes_test);
-    #ifndef BENCHMARK
     printf("  Network accuracy: %f\n\n", accuracy);
     #endif
     
