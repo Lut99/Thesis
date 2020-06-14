@@ -23,7 +23,7 @@ DEFAULT_CODEDIR = "src/lib/NeuralNetwork"
 DEFAULT_VARIATIONS = ["*"]
 DEFAULT_ITERATIONS = 3
 HEADERS = ["n_threads", "n_hidden_layers", "nodes_per_layer", "n_epochs", "n_samples", "sample_size", "n_classes"]
-HEADER_PARAM_MAP = {
+HEADER_OPTION_MAP = {
     "n_hidden_layers": "-H",
     "nodes_per_layer": "-N",
     "n_epochs": "-e",
@@ -31,21 +31,37 @@ HEADER_PARAM_MAP = {
     "sample_size": "-s",
     "n_classes": "-c"
 }
+HEADER_PARAM_MAP = {
+    "n_hidden_layers": "hidden",
+    "nodes_per_layer": "nodes",
+    "n_epochs": "epochs",
+    "n_samples": "samples",
+    "sample_size": "sample_size",
+    "n_classes": "classes"
+}
 
-DEFAULT_N_SAMPLES = [1, 10, 50, 100, 500, 1000, 5000, 10000, 100000, 1000000]
-DEFAULT_SAMPLE_SIZES = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
-DEFAULT_N_CLASSES = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
-DEFAULT_EPOCHS = [1, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000]
-DEFAULT_N_HIDDEN_LAYERS = [0, 1, 2, 5, 10, 25]
-DEFAULT_NODES_PER_HIDDEN_LAYER = [1, 2, 5, 10, 50, 100, 500, 1000, 10000]
+DEFAULT_N_SAMPLES = [500, 1, 10, 50, 100, 1000, 5000]
+DEFAULT_SAMPLE_SIZES = [50, 1, 5, 10, 100, 500, 1000, 2500]
+DEFAULT_N_CLASSES = [10, 1, 5, 50, 100, 500, 1000, 2500]
+DEFAULT_EPOCHS = [500, 1, 1500, 5000]
+DEFAULT_N_HIDDEN_LAYERS = [1, 0, 2, 5, 10, 25]
+DEFAULT_NODES_PER_HIDDEN_LAYER = [10, 1, 5, 50, 100, 500, 1000, 2500]
 
-DEFAULT_THREADS = [1, 2, 4, 6, 8, 10, 12, 16, 32]
+DEFAULT_THREADS = [2, 4, 8, 16, 32]
 
 
 def is_float(n):
     # Returns if n is parsable to a float
     try:
         float(n)
+        return True
+    except ValueError:
+        return False
+
+def is_float_l(list):
+    try:
+        for elem in list:
+            float(elem)
         return True
     except ValueError:
         return False
@@ -57,17 +73,17 @@ def run(var_ID, params, das_reservation):
 
     # Add the flags
     for h in HEADERS:
-        if h in HEADER_PARAM_MAP and h in params:
+        if h in HEADER_OPTION_MAP and h in params:
             val = params[h]
             if h == "nodes_per_layer":
                 # Pad it to be a list of H size first
                 val = ",".join([str(val)] * params["n_hidden_layers"])
 
-            cmd += [HEADER_PARAM_MAP[h], f"{val}"]
+            cmd += [HEADER_OPTION_MAP[h], f"{val}"]
     
     # Add the positionals
     for h in HEADERS:
-        if h not in HEADER_PARAM_MAP and h in params:
+        if h not in HEADER_OPTION_MAP and h in params:
             cmd.append(f"{params[h]}")
 
     if das_reservation is not None:
@@ -83,12 +99,12 @@ def run(var_ID, params, das_reservation):
     
     # Fetch the result and try to parse the Time taken from it
     out = result.stdout.decode('utf-8')
-    data = out.split(",")
-    if len(data) != 2 or not is_float(data[0]) or not is_float(data[1]):
-        print(f"\nERROR: Failed to retrieve performance data from '{' '.join(cmd)}': expected two numbers separated by comma, got: \"{out}\".", file=sys.stderr)
+    data = [elem for elem in out.split("\n") if len(elem) > 0]
+    if len(data) != 6 or not is_float_l(data):
+        print(f"\nERROR: Failed to retrieve performance data from '{' '.join(cmd)}': expected six numbers separated by newlines, got: \"{out}\".", file=sys.stderr)
         exit(-1)
 
-    return float(data[0]), float(data[1])
+    return data
 
 
 def compile(var_ID):
@@ -114,8 +130,8 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
         sys.stdout.flush()
 
         # Run it
-        runtime, cputime = run(var_ID, params, das_reservation)
-        print(f" {runtime}s")
+        runtimes = run(var_ID, params, das_reservation)
+        print(f" {runtimes[0]}s")
 
         # Write the info about this run and the result to the file
         print(f"{var_ID},{i}", file=outputfile, end="")
@@ -125,9 +141,9 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
             else:
                 # For headers that are not present in the current parameters, just print a '-'
                 print(f",-", file=outputfile, end="")
-        print(f",{runtime},{cputime}", file=outputfile)
+        print(f",{','.join(runtimes)}", file=outputfile)
 
-        avg_runtime += runtime
+        avg_runtime += float(runtimes[0])
     if len(params) > 0:
         print("   ", end="")
     print(f"       > Average: {avg_runtime / iterations} seconds")
@@ -138,6 +154,8 @@ def vary_param(outputfile, var_ID, iterations, params, param_to_vary, param_valu
     for p_value in param_values:
         # Update the value for that parameter
         params[param_to_vary] = p_value
+    
+        print(f"         Parameter value: {p_value}")
 
         # Run a benchmark with this value
         run_benchmark(outputfile, var_ID, iterations, params, das_reservation)
@@ -184,7 +202,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
     print(" Done\n")
 
     print("Writing headers...", end="")
-    print("variation,iteration," + ",".join(HEADERS) + ",runtime,cputime", file=output)
+    print("variation,iteration," + ",".join(HEADERS) + ",total_runtime,iterations_runtime,fwd_pass_runtime,bck_pass_out_runtime,bck_pass_hidden_runtime,updates_runtime,cputime", file=output)
     print(" Done\n")
 
     print("Splitting variations by functionality...")
@@ -231,29 +249,24 @@ def main(outputpath, variations, iterations, das_reservation, args):
 
             # Run for the different parameters
             print("      Running...")
-            i = 0
-            total = len(args.hidden) * len(args.nodes) * len(args.epochs) * len(args.samples) * len(args.sample_size) * len(args.classes)
             for header in HEADERS:
-                if header == "num_threads": continue
-                # Vary this parameter
-                vary_param(output, seq, iterations, )
-            # for n_hidden_layers in args.hidden:
-            #     for nodes_per_layer in args.nodes:
-            #         for n_epochs in args.epochs:
-            #             for n_samples in args.samples:
-            #                 for sample_size in args.sample_size:
-            #                     for n_classes in args.classes:
-            #                         i += 1
-            #                         param_set = {
-            #                             "n_hidden_layers": n_hidden_layers,
-            #                             "nodes_per_layer": nodes_per_layer,
-            #                             "n_epochs": n_epochs,
-            #                             "n_samples": n_samples,
-            #                             "sample_size": sample_size,
-            #                             "n_classes": n_classes,
-            #                         }
-            #                         print(f"       > ({i}/{total}) Params: {param_set}")
-            #                         run_benchmark(output, seq, iterations, param_set, das_reservation)
+                if header == "n_threads": continue
+
+                # Fill with default values
+                param_set = {
+                    "n_hidden_layers": args.hidden[0],
+                    "nodes_per_layer": args.nodes[0],
+                    "n_epochs": args.epochs[0],
+                    "n_samples": args.samples[0],
+                    "sample_size": args.sample_size[0],
+                    "n_classes": args.classes[0]
+                }
+
+                print(f"       > Varying: {header}")
+
+                # Run the varyer for the current parameter
+                vary_param(output, seq, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+
             print("      Done")
         print("Done\n")
 
@@ -271,33 +284,60 @@ def main(outputpath, variations, iterations, das_reservation, args):
 
             # Run for the different parameters
             print("      Running...")
-            i = 0
-            total = len(args.threads) * len(args.hidden) * len(args.nodes) * len(args.epochs) * len(args.samples) * len(args.sample_size) * len(args.classes)
-            for n_threads in args.threads:
-                for n_hidden_layers in args.hidden:
-                    for nodes_per_layer in args.nodes:
-                        for n_epochs in args.epochs:
-                            for n_samples in args.samples:
-                                for sample_size in args.sample_size:
-                                    for n_classes in args.classes:
-                                        i += 1
-                                        param_set = {
-                                            "n_threads": n_threads,
-                                            "n_hidden_layers": n_hidden_layers,
-                                            "nodes_per_layer": nodes_per_layer,
-                                            "n_epochs": n_epochs,
-                                            "n_samples": n_samples,
-                                            "sample_size": sample_size,
-                                            "n_classes": n_classes,
-                                        }
-                                        print(f"       > ({i}/{total}) Params: {param_set}")
-                                        run_benchmark(output, cpu, iterations, param_set, das_reservation)
+            for header in HEADERS:
+                if header == "n_threads": continue
+
+                for n_threads in args.threads:
+                    # Fill with default values
+                    param_set = {
+                        "n_threads": n_threads,
+                        "n_hidden_layers": args.hidden[0],
+                        "nodes_per_layer": args.nodes[0],
+                        "n_epochs": args.epochs[0],
+                        "n_samples": args.samples[0],
+                        "sample_size": args.sample_size[0],
+                        "n_classes": args.classes[0]
+                    }
+
+                    print(f"       > Varying: {header}")
+
+                    # Run the varyer for the current parameter
+                    vary_param(output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
             print("      Done")
         print("Done\n")
 
     # Finally, GPU benchmarks
     if len(gpus) > 0:
         print("Performing benchmarks for GPU implementations")
+        for gpu in gpus:
+            print(f" > Variation: {gpu}")
+
+            # Compile first
+            print("      Compiling...", end="")
+            sys.stdout.flush()
+            compile(gpu)
+            print(" Done")
+
+            # Run for the different parameters
+            print("      Running...")
+            for header in HEADERS:
+                if header == "n_threads": continue
+
+                # Fill with default values
+                param_set = {
+                    "n_hidden_layers": args.hidden[0],
+                    "nodes_per_layer": args.nodes[0],
+                    "n_epochs": args.epochs[0],
+                    "n_samples": args.samples[0],
+                    "sample_size": args.sample_size[0],
+                    "n_classes": args.classes[0]
+                }
+
+                print(f"       > Varying: {header}")
+
+                # Run the varyer for the current parameter
+                vary_param(output, gpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+            print("      Done")
         print("Done\n")
 
     # Close output file
@@ -331,7 +371,6 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--threads", required=False, nargs='+', default=DEFAULT_THREADS, type=int, help=f"Specify the values for which to try different number of threads. Default: {DEFAULT_THREADS}")
 
     args = parser.parse_args()
-
 
     # Check if the prun library exists if we do so
     if args.reservation is not None:
@@ -374,6 +413,12 @@ if __name__ == "__main__":
         # First, check if the files exist
         for var_ID in args.variations:
             path = os.path.join(args.directory, "NeuralNetwork_" + var_ID + ".c")
+            if not os.path.exists(path):
+                # Try again with cuda file
+                print(f"WARNING: File \"{path}\" does not exist, retrying for .cu variation...")
+                path = os.path.join(args.directory, "NeuralNetwork_" + var_ID + ".cu")
+
+            # Check if the c or cu file is valid
             if not os.path.exists(path):
                 print(f"ERROR: File \"{path}\" does not exist.", file=sys.stderr)
                 exit(-1)

@@ -72,7 +72,8 @@ $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Su
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(BIN)/testdata.out: $(OBJ)/TestData.o $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Support.a | dirs
-	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
+	g++ -std=c11 -O2 -Wall -Wextra -L/usr/local/cuda-10.2/lib64 -fopenmp $(INCLUDES) -o $@ $^ $(EXT_LIBS) -lcuda -lcudart
+	#$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
