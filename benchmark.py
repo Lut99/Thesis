@@ -41,11 +41,11 @@ HEADER_PARAM_MAP = {
 }
 
 DEFAULT_N_SAMPLES = [500, 1, 10, 50, 100, 1000, 5000]
-DEFAULT_SAMPLE_SIZES = [50, 1, 5, 10, 100, 500, 1000, 2500]
-DEFAULT_N_CLASSES = [10, 1, 5, 50, 100, 500, 1000, 2500]
+DEFAULT_SAMPLE_SIZES = [50, 1, 5, 10, 100, 500, 1000, 2500, 5000]
+DEFAULT_N_CLASSES = [10, 1, 5, 50, 100, 500, 1000, 2500, 5000]
 DEFAULT_EPOCHS = [500, 1, 1500, 5000]
 DEFAULT_N_HIDDEN_LAYERS = [1, 0, 2, 5, 10, 25]
-DEFAULT_NODES_PER_HIDDEN_LAYER = [10, 1, 5, 50, 100, 500, 1000, 2500]
+DEFAULT_NODES_PER_HIDDEN_LAYER = [10, 1, 5, 50, 100, 500, 1000, 2500, 5000]
 
 DEFAULT_THREADS = [2, 4, 8, 16, 32]
 
@@ -202,7 +202,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
     print(" Done\n")
 
     print("Writing headers...", end="")
-    print("variation,iteration," + ",".join(HEADERS) + ",total_runtime,iterations_runtime,fwd_pass_runtime,bck_pass_out_runtime,bck_pass_hidden_runtime,updates_runtime,cputime", file=output)
+    print("variation,iteration," + ",".join(HEADERS) + ",total_runtime,iterations_runtime,fwd_pass_runtime,bck_pass_out_runtime,bck_pass_hidden_runtime,updates_runtime", file=output)
     print(" Done\n")
 
     print("Splitting variations by functionality...")
@@ -299,7 +299,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
                         "n_classes": args.classes[0]
                     }
 
-                    print(f"       > Varying: {header}")
+                    print(f"       > Varying: {header} (num_threads = {n_threads})")
 
                     # Run the varyer for the current parameter
                     vary_param(output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/13/2020, 2:55:13 PM
+ *   6/15/2020, 12:12:22 AM
  * Auto updated?
  *   Yes
  *
@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "NeuralNetwork.h"
 
@@ -47,6 +48,8 @@ extern int omp_get_thread_num();
 
 /***** HELPER FUNCTIONS *****/
 
+#define TIMEVAL_TO_MS(T_START, T_END) (((T_END.tv_sec - T_START.tv_sec) * 1000000 + (T_END.tv_usec - T_START.tv_usec)) / 1000000.0)
+
 extern size_t max(size_t length, const size_t* list);
 
 
@@ -54,6 +57,17 @@ extern size_t max(size_t length, const size_t* list);
 /***** NEURAL NETWORK OPERATIONS *****/
 
 void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
+    #ifdef BENCHMARK
+    // Declare all timers
+    struct timeval s_total, e_total, s_iters, e_iters, s_fwd, e_fwd, s_bck_out, e_bck_out, s_bck_hid, e_bck_hid, s_upd, e_upd;
+
+    // Set some shortcuts for the timers
+    size_t half_iters = n_iterations / 2;
+
+    // Start the total timer
+    gettimeofday(&s_total, NULL);
+    #endif
+
     // Also obtain links to all biases / matrices
     double** biases = nn->biases;
     double** weights = nn->weights;
@@ -98,9 +112,21 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         }
     }
 
+    #ifdef BENCHMARK
+    // Start the iterations timer
+    gettimeofday(&s_iters, NULL);
+    #endif
+
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
         /***** FORWARD PASS *****/
+
+        #ifdef BENCHMARK
+        // Start the forward pass timer
+        if (i == half_iters) {
+            gettimeofday(&s_fwd, NULL);
+        }
+        #endif
 
         // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
         for (size_t l = 1; l < nn->n_layers; l++) {
@@ -130,6 +156,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 }
             }
         }
+
+        #ifdef BENCHMARK
+        // End the forward timer, start the backward pass output timer
+        if (i == half_iters) {
+            gettimeofday(&e_fwd, NULL);
+            gettimeofday(&s_bck_out, NULL);
+        }
+        #endif
 
         /***** BACKWARD PASS *****/
 
@@ -169,6 +203,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 }
             }
         }
+
+        #ifdef BENCHMARK
+        // End the backward pass output timer, start the backward pass hidden timer
+        if (i == half_iters) {
+            gettimeofday(&e_bck_out, NULL);
+            gettimeofday(&s_bck_hid, NULL);
+        }
+        #endif
         
         // Do the other, hidden layers (1 iteration, non-parallelizable)
         for (size_t l = nn->n_layers - 2; l > 0; l--) {
@@ -229,6 +271,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             prev_deltas = temp;
         }
 
+        #ifdef BENCHMARK
+        // End the backward pass hidden timer
+        if (i == half_iters) {
+            gettimeofday(&e_bck_hid, NULL);
+            gettimeofday(&s_upd, NULL);
+        }
+        #endif
+
         // Actually update the weights, and reset the delta updates to 0 for next iteration (2 iterations)
         for (size_t l = 0; l < nn->n_weights; l++) {
             double* bias = biases[l];
@@ -252,7 +302,19 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 delta_weight[i] = 0;
             }
         }
+
+        #ifdef BENCHMARK
+        // Stop the updates timer
+        if (i == half_iters) {
+            gettimeofday(&e_upd, NULL);
+        }
+        #endif
     }
+
+    #ifdef BENCHMARK
+    // End the iterations timer
+    gettimeofday(&e_iters, NULL);
+    #endif
 
     // Cleanup
 
@@ -270,6 +332,19 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     // Cleanup the deltas
     free(deltas);
     free(prev_deltas);
+
+    #ifdef BENCHMARK
+    // End the total timer
+    gettimeofday(&e_total, NULL);
+
+    // Print the results
+    printf("%f\n", TIMEVAL_TO_MS(s_total, e_total));
+    printf("%f\n", TIMEVAL_TO_MS(s_iters, e_iters));
+    printf("%f\n", TIMEVAL_TO_MS(s_fwd, e_fwd));
+    printf("%f\n", TIMEVAL_TO_MS(s_bck_out, e_bck_out));
+    printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
+    printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
+    #endif
 }
 
 

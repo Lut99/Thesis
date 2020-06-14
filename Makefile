@@ -1,5 +1,6 @@
 GCC=gcc
 GCC_ARGS=-std=c11 -O2 -Wall -Wextra
+GCC_LINK_ARGS=
 NVCC=nvcc
 NVCC_ARGS=-O2 --gpu-architecture=compute_75 --gpu-code=sm_75
 
@@ -30,6 +31,10 @@ endif
 
 ifdef VARIATION
 ifneq ($(VARIATION), sequential)
+ifneq (,$(findstring cuda,$(shell echo $(VARIATION) | tr A-Z a-z)))
+GCC_LINK_ARGS+= -L/usr/local/cuda-11.0/lib64
+EXT_LIBS += -lcuda -lcudart
+else
 GCC_ARGS+=-fopenmp
 ifneq (,$(findstring omp_gpu,$(shell echo $(VARIATION) | tr A-Z a-z)))
 # Set the compiler to the one in /var/scratch/tmuller
@@ -38,9 +43,12 @@ GCC=/var/scratch/tmuller/opt/offload/install/bin/gcc
 GCC_ARGS+= -foffload="-lm" -foffload=nvptx-none
 endif
 endif
+endif
 else
 VARIATION=sequential
 endif
+
+GCC_LINK_ARGS:=$(GCC_ARGS) $(GCC_LINK_ARGS)
 
 .PHONY: default dirs digits testdata tests plot all
 default: all
@@ -54,26 +62,25 @@ $(TST_BIN):
 dirs: $(BIN) $(OBJ) $(TST_BIN)
 
 $(OBJ)/%.o: $(LIB)/%.c | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
 
 $(OBJ)/Support.a: $(OBJ)/Array.o $(OBJ)/NeuralNetwork.o | dirs
 	ar cr $@ $^
 
 $(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.c | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
 $(OBJ)/NeuralNetwork_%.o: $(LIB)/NeuralNetwork/NeuralNetwork_%.cu | dirs
-	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ --device-c $< $(EXT_LIBS)
+	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ -c $<
 $(OBJ)/Digits.o: $(SRC)/Digits.c | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
 $(OBJ)/TestData.o: $(SRC)/TestData.c | dirs
-	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $< $(EXT_LIBS)
+	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
 
 $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
 	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(BIN)/testdata.out: $(OBJ)/TestData.o $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Support.a | dirs
-	g++ -std=c11 -O2 -Wall -Wextra -L/usr/local/cuda-10.2/lib64 -fopenmp $(INCLUDES) -o $@ $^ $(EXT_LIBS) -lcuda -lcudart
-	#$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
+	$(GCC) $(GCC_LINK_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(TST_BIN)/playground.out: $(TST)/playground.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ $< $(EXT_LIBS)
