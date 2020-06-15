@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/13/2020, 2:57:59 PM
+ *   6/15/2020, 2:23:36 PM
  * Auto updated?
  *   Yes
  *
@@ -18,11 +18,17 @@
 extern "C" {
 #include "NeuralNetwork.h"
 }
+#include <sys/time.h>
 
 
 /***** GLOBALS *****/
 
 static unsigned int threads_per_block = 64;
+
+
+/***** HELPER FUNCTIONS *****/
+
+#define TIMEVAL_TO_MS(T_START, T_END) (((T_END.tv_sec - T_START.tv_sec) * 1000000 + (T_END.tv_usec - T_START.tv_usec)) / 1000000.0)
 
 
 /***** IDEAS *****/
@@ -814,6 +820,17 @@ extern "C" void nn_full_cuda(neural_net* nn, double** biases_cpu, double** weigh
 
 // Cuda memory help from https://stackoverflow.com/questions/16119943/how-and-when-should-i-use-pitched-pointer-with-the-cuda-api
 extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expected, double learning_rate, size_t n_iterations) {
+    #ifdef BENCHMARK
+    // Declare all timers
+    struct timeval s_total, e_total, s_iters, e_iters, s_fwd, e_fwd, s_bck_out, e_bck_out, s_bck_hid, e_bck_hid, s_upd, e_upd;
+
+    // Set some shortcuts for the timers
+    size_t half_iters = n_iterations / 2;
+
+    // Start the total timer
+    gettimeofday(&s_total, NULL);
+    #endif
+
     /***** NN SHORTCUTS *****/
 
     size_t n_layers = nn->n_layers;
@@ -913,9 +930,23 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
     //   layer-dependent
     unsigned int blocks_per_grid;
 
+    #ifdef BENCHMARK
+    // Start the iterations timer
+    gettimeofday(&s_iters, NULL);
+    #endif
+
     // Perform the training for n_iterations (always) (20,000 iterations, non-parallelizable)
     for (size_t i = 0; i < n_iterations; i++) {
         /***** FORWARD PASS *****/
+
+        #ifdef BENCHMARK
+        // Start the forward pass timer
+        if (i == half_iters) {
+            cudaDeviceSynchronize();
+
+            gettimeofday(&s_fwd, NULL);
+        }
+        #endif
 
         // Loop through all layers forwardly so that we can compute errors later (2 iterations, non-parallelizable)
         for (size_t l = 1; l < n_layers; l++) {
@@ -929,6 +960,16 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
                 nodes_per_layer[l - 1], nodes_per_layer[l], n_samples
             );
         }
+
+        #ifdef BENCHMARK
+        // End the forward timer, start the backward pass output timer
+        if (i == half_iters) {
+            cudaDeviceSynchronize();
+
+            gettimeofday(&e_fwd, NULL);
+            gettimeofday(&s_bck_out, NULL);
+        }
+        #endif
 
 
         /***** BACKWARD PASS *****/
@@ -945,6 +986,16 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
             nodes_per_layer[n_layers - 2], nodes_per_layer[n_layers - 1], n_samples
         );
 
+        #ifdef BENCHMARK
+        // End the backward pass output timer, start the backward pass hidden timer
+        if (i == half_iters) {
+            cudaDeviceSynchronize();
+
+            gettimeofday(&e_bck_out, NULL);
+            gettimeofday(&s_bck_hid, NULL);
+        }
+        #endif
+
         // Loop through all hidden layers in the other direction so that we can compute their weight updates (1 iteration, non-parallelizable)
         for (l = n_layers - 2; l > 0; l--) {
             blocks_per_grid = (n_samples * nodes_per_layer[l] + threads_per_block - 1) / threads_per_block;
@@ -960,6 +1011,15 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
             );
         }
 
+        #ifdef BENCHMARK
+        // End the backward pass hidden timer
+        if (i == half_iters) {
+            cudaDeviceSynchronize();
+
+            gettimeofday(&e_bck_hid, NULL);
+            gettimeofday(&s_upd, NULL);
+        }
+        #endif
 
         /***** BIAS & WEIGHT UPDATES *****/
         
@@ -1016,12 +1076,25 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
                 prev_nodes, this_nodes, learning_rate
             );
         }
-    }
 
+        #ifdef BENCHMARK
+        // Stop the updates timer
+        if (i == half_iters) {
+            cudaDeviceSynchronize();
+            
+            gettimeofday(&e_upd, NULL);
+        }
+        #endif
+    }
 
     /***** CLEANUP *****/
 
     cudaDeviceSynchronize();
+
+    #ifdef BENCHMARK
+    // End the iterations timer
+    gettimeofday(&e_iters, NULL);
+    #endif
 
     /* COPY */
 
@@ -1058,6 +1131,19 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
 
     // Finally, clear the expected list
     cudaFree(expected_gpu);
+
+    #ifdef BENCHMARK
+    // End the total timer
+    gettimeofday(&e_total, NULL);
+
+    // Print the results
+    printf("%f\n", TIMEVAL_TO_MS(s_total, e_total));
+    printf("%f\n", TIMEVAL_TO_MS(s_iters, e_iters));
+    printf("%f\n", TIMEVAL_TO_MS(s_fwd, e_fwd));
+    printf("%f\n", TIMEVAL_TO_MS(s_bck_out, e_bck_out));
+    printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
+    printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
+    #endif
 }
 
 

@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/15/2020, 12:24:46 AM
+ *   6/15/2020, 1:42:51 PM
  * Auto updated?
  *   Yes
  *
@@ -116,19 +116,16 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
     // Perform the training for n_iterations (always)
     for (size_t i = 0; i < n_iterations; i++) {
-        /***** FORWARD PASS *****/
-
-        // Loop through all samples to compute the forward cost
         #pragma omp parallel for schedule(static)
         for (size_t s = 0; s < n_samples; s++) {
+            /***** FORWARD PASS *****/
+
             #ifdef BENCHMARK
             // Start the forward pass timer
             if (i == half_iters && s == half_samples) {
                 gettimeofday(&s_fwd, NULL);
             }
             #endif
-
-            // Perform a forward pass through the network to be able to say something about the performance
 
             // sample_outputs is a 2D flattened array for this layer
             double** sample_outputs = layer_outputs[s];
