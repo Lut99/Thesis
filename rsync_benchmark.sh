@@ -6,5 +6,11 @@ if [ "$#" != "1" ]; then
 	exit -1
 fi
 
-rsync -ruv {Makefile,benchmark.py,digits.csv,src} "$1:thesis_benchmark/" --delete 
+if [ "$1" != "localhost" ]; then 
+	rsync -ruv {Makefile,benchmark.py,digits.csv,src} "$1:thesis_benchmark/" --delete
+else
+	# Copy it to one folder up benchmark/
+	rm -rf ../benchmark/{Makefile,benchmark.py,digits.csv,src}
+	cp -r {Makefile,benchmark.py,digits.csv,src} ../benchmark/
+fi
 

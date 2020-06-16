@@ -21,7 +21,7 @@ from collections import defaultdict
 DEFAULT_OUTPUTPATH = "benchmark_results.csv"
 DEFAULT_CODEDIR = "src/lib/NeuralNetwork"
 DEFAULT_VARIATIONS = ["*"]
-DEFAULT_ITERATIONS = 3
+DEFAULT_ITERATIONS = 5
 HEADERS = ["n_threads", "n_hidden_layers", "nodes_per_layer", "n_epochs", "n_samples", "sample_size", "n_classes"]
 HEADER_OPTION_MAP = {
     "n_hidden_layers": "-H",
@@ -40,12 +40,12 @@ HEADER_PARAM_MAP = {
     "n_classes": "classes"
 }
 
-DEFAULT_N_SAMPLES = [500, 1, 10, 50, 100, 1000, 5000]
-DEFAULT_SAMPLE_SIZES = [50, 1, 5, 10, 100, 500, 1000, 2500, 5000]
-DEFAULT_N_CLASSES = [10, 1, 5, 50, 100, 500, 1000, 2500, 5000]
+DEFAULT_N_SAMPLES = [500, 1, 50, 100, 1000, 5000]
+DEFAULT_SAMPLE_SIZES = [50, 1, 100, 500, 1000, 5000]
+DEFAULT_N_CLASSES = [10, 1, 50, 100, 500, 1000, 5000]
 DEFAULT_EPOCHS = [500, 1, 1500, 5000]
-DEFAULT_N_HIDDEN_LAYERS = [1, 0, 2, 5, 10, 25]
-DEFAULT_NODES_PER_HIDDEN_LAYER = [10, 1, 5, 50, 100, 500, 1000, 2500, 5000]
+DEFAULT_N_HIDDEN_LAYERS = [1, 0, 2, 5, 10, 25, 50]
+DEFAULT_NODES_PER_HIDDEN_LAYER = [20, 1, 50, 100, 500, 1000, 5000]
 
 DEFAULT_THREADS = [2, 4, 8, 16, 32]
 
@@ -121,7 +121,7 @@ def compile(var_ID):
         exit(-1)
 
 
-def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
+def run_benchmark(machine_ID, outputfile, var_ID, iterations, params, das_reservation):
     avg_runtime = 0
     for i in range(iterations):
         if len(params) > 0:
@@ -134,7 +134,7 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
         print(f" {runtimes[0]}s")
 
         # Write the info about this run and the result to the file
-        print(f"{var_ID},{i}", file=outputfile, end="")
+        print(f"{machine_ID}, {var_ID},{i}", file=outputfile, end="")
         for header in HEADERS:
             if header in params:
                 print(f",{params[header]}", file=outputfile, end="")
@@ -149,7 +149,7 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation):
     print(f"       > Average: {avg_runtime / iterations} seconds")
 
 
-def vary_param(outputfile, var_ID, iterations, params, param_to_vary, param_values, das_reservation):
+def vary_param(machine_ID, outputfile, var_ID, iterations, params, param_to_vary, param_values, das_reservation):
     # Loop through the param values
     for p_value in param_values:
         # Update the value for that parameter
@@ -158,13 +158,14 @@ def vary_param(outputfile, var_ID, iterations, params, param_to_vary, param_valu
         print(f"         Parameter value: {p_value}")
 
         # Run a benchmark with this value
-        run_benchmark(outputfile, var_ID, iterations, params, das_reservation)
+        run_benchmark(machine_ID, outputfile, var_ID, iterations, params, das_reservation)
 
 
-def main(outputpath, variations, iterations, das_reservation, args):
+def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
     print("\n### BENCHMARK TOOL for NEURALNETWORK.c ###\n")
 
     print(f"Benchmark configuration:")
+    print(f" - Machine ID                      : \"{machine_ID}\"")
     print(f" - Output file                     : \"{outputpath}\"")
     print(f" - Benchmarking versions           : {variations}")
     print(f" - Iterations per test             : {iterations}")
@@ -183,7 +184,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
     print("")
 
     print(f"Variation-specific parameter configuration:")
-    print(f" - Threads to test       : {args.threads}")
+    print(f" - Threads to test                 : {args.threads}")
     print("")
 
     print("Cleaning existing binaries...", end="")
@@ -202,7 +203,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
     print(" Done\n")
 
     print("Writing headers...", end="")
-    print("variation,iteration," + ",".join(HEADERS) + ",total_runtime,iterations_runtime,fwd_pass_runtime,bck_pass_out_runtime,bck_pass_hidden_runtime,updates_runtime", file=output)
+    print("machine_id,variation,iteration," + ",".join(HEADERS) + ",total_runtime,iterations_runtime,fwd_pass_runtime,bck_pass_out_runtime,bck_pass_hidden_runtime,updates_runtime", file=output)
     print(" Done\n")
 
     print("Splitting variations by functionality...")
@@ -265,7 +266,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
                 print(f"       > Varying: {header}")
 
                 # Run the varyer for the current parameter
-                vary_param(output, seq, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                vary_param(machine_ID, output, seq, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
 
             print("      Done")
         print("Done\n")
@@ -302,7 +303,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
                     print(f"       > Varying: {header} (num_threads = {n_threads})")
 
                     # Run the varyer for the current parameter
-                    vary_param(output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                    vary_param(machine_ID, output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
             print("      Done")
         print("Done\n")
 
@@ -336,7 +337,7 @@ def main(outputpath, variations, iterations, das_reservation, args):
                 print(f"       > Varying: {header}")
 
                 # Run the varyer for the current parameter
-                vary_param(output, gpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                vary_param(machine_ID, output, gpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
             print("      Done")
         print("Done\n")
 
@@ -353,6 +354,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmark for the Feedforward Neural Network.')
 
     # Benchmarking related
+    parser.add_argument("-m", "--machine_id", required=True, help="A human-readable name for the given machine. Used to be able to easily combine the results from benchmarks on different machines, and should therefore be unique.")
     parser.add_argument("-r", "--reservation", required=False, default=None, type=int, help="If given, uses the DAS 'prun' command to run a benchmark on the remote node with the given reservation number.")
     parser.add_argument("-o", "--output", required=False, default=DEFAULT_OUTPUTPATH, help=f"Path to file that contains the data. Note that any existing files will be overwritten. Default: \"{DEFAULT_OUTPUTPATH}\"")
     parser.add_argument("-d", "--directory", required=False, default=DEFAULT_CODEDIR, help=f"The path to the directory with all the NeuralNetwork implementations. Default: \"{DEFAULT_CODEDIR}\"")
@@ -437,4 +439,4 @@ if __name__ == "__main__":
 
 
     # Now that's done, call main
-    exit(main(args.output, args.variations, args.iterations, args.reservation, args))
+    exit(main(args.machine_id, args.output, args.variations, args.iterations, args.reservation, args))
