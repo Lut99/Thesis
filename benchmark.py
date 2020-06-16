@@ -165,7 +165,7 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
     print("\n### BENCHMARK TOOL for NEURALNETWORK.c ###\n")
 
     print(f"Benchmark configuration:")
-    print(f" - Machine ID                      : \"{machine_ID}\"")
+    print(f" - Machine ID                      : {machine_ID}")
     print(f" - Output file                     : \"{outputpath}\"")
     print(f" - Benchmarking versions           : {variations}")
     print(f" - Iterations per test             : {iterations}")
