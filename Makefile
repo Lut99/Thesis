@@ -77,7 +77,7 @@ $(OBJ)/TestData.o: $(SRC)/TestData.c | dirs
 	$(GCC) $(GCC_ARGS) $(INCLUDES) -o $@ -c $<
 
 $(BIN)/digits.out: $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Digits.o $(OBJ)/Support.a | dirs
-	$(NVCC) $(NVCC_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
+	$(GCC) $(GCC_LINK_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
 
 $(BIN)/testdata.out: $(OBJ)/TestData.o $(OBJ)/NeuralNetwork_${VARIATION}.o $(OBJ)/Support.a | dirs
 	$(GCC) $(GCC_LINK_ARGS) $(INCLUDES) -o $@ $^ $(EXT_LIBS)
