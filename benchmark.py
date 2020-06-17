@@ -76,6 +76,8 @@ def run(var_ID, params, das_reservation):
         if h in HEADER_OPTION_MAP and h in params:
             val = params[h]
             if h == "nodes_per_layer":
+                # Skip adding this if there is no need
+                if (params["n_hidden_layers"] <= 0): continue
                 # Pad it to be a list of H size first
                 val = ",".join([str(val)] * params["n_hidden_layers"])
 
@@ -134,7 +136,7 @@ def run_benchmark(machine_ID, outputfile, var_ID, iterations, params, das_reserv
         print(f" {runtimes[0]}s")
 
         # Write the info about this run and the result to the file
-        print(f"{machine_ID}, {var_ID},{i}", file=outputfile, end="")
+        print(f"{machine_ID},{var_ID},{i}", file=outputfile, end="")
         for header in HEADERS:
             if header in params:
                 print(f",{params[header]}", file=outputfile, end="")
