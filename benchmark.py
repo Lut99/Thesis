@@ -257,6 +257,7 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
 
                 # Fill with default values
                 param_set = {
+                    "n_threads": 1,
                     "n_hidden_layers": args.hidden[0],
                     "nodes_per_layer": args.nodes[0],
                     "n_epochs": args.epochs[0],
@@ -328,6 +329,7 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
 
                 # Fill with default values
                 param_set = {
+                    "n_threads": 1,
                     "n_hidden_layers": args.hidden[0],
                     "nodes_per_layer": args.nodes[0],
                     "n_epochs": args.epochs[0],

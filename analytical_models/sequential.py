@@ -109,11 +109,11 @@ def t_u_weight(pi, beta, p, p1):
 
 
 def predict(sample_parameters, machine_parameters):
-    n_threads = int(sample_parameters.iloc[0])
-    L = int(sample_parameters.iloc[1]) + 2
-    P = [int(sample_parameters.iloc[5])] + [int(sample_parameters.iloc[2])] * (L - 2) + [int(sample_parameters.iloc[6])]
-    N = int(sample_parameters.iloc[3])
-    S = int(sample_parameters.iloc[4])
+    n_threads = int(sample_parameters[0])
+    L = int(sample_parameters[1]) + 2
+    P = [int(sample_parameters[5])] + [int(sample_parameters[2])] * (L - 2) + [int(sample_parameters[6])]
+    N = int(sample_parameters[3])
+    S = int(sample_parameters[4])
 
     pi = machine_parameters[n_threads][0] * 1000000000
     beta = machine_parameters[n_threads][1] * 1000000000

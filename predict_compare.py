@@ -10,8 +10,10 @@
 
 import argparse
 import pandas as pd
+import numpy as np
 import os
 import sys
+from collections import defaultdict
 
 
 DEFAULT_CSV = "benchmark_results.csv"
@@ -31,13 +33,21 @@ MACHINES = {
         16: (115.2, 17.09865),
         32: (115.2, 17.01528)
     },
+    "DAS5_1numa": {
+        1: (2.4, 11.53074),
+        2: (4.8, 12.49312),
+        4: (9.6, 22.43777),
+        8: (19.2, 30.47322),
+        16: (38.4, 31.12496),
+        32: (76.8, 31.10337)
+    },
     "DAS5": {
-        1: (2.4, 11.243346081),
-        2: (4.8, 0),
-        4: (9.6, 0),
-        8: (19.2, 0),
-        16: (38.4, 0),
-        32: (76.8, 99.929263299000013)
+        1: (2.4, 11.53074),
+        2: (4.8, 22.61996),
+        4: (9.6, 24.99948),
+        8: (19.2, 45.96919),
+        16: (38.4, 60.74498),
+        32: (76.8, 62.18000)
     },
     "macbook": {
         1: (5.8, 11.16392),
@@ -77,48 +87,27 @@ def main(models_path, csv_path, output_path):
         except ModuleNotFoundError:
             print(f"\n\nERROR: Could not load file '{variation}.py' from '{models_path}'.", file=sys.stderr)
             return -1
-    print(f"Done (loaded {len(models)} models)")    
+    print(f"Done (loaded {len(models)} models)")   
 
-    print("Splitting into hardware / implementation pairs... ", end="")
+    print("Reading benchmarks... ", end="")
     sys.stdout.flush()
-    pairs = {}
-    for machine_id in data["machine_id"].unique():
-        # Each machine
-        machine_data = data[data["machine_id"] == machine_id]
-        pairs[machine_id] = {}
-        for variation in machine_data["variation"].unique():
-            # Each machine / implementation pair
-            pairs[machine_id][variation] = machine_data[machine_data["variation"] == variation].iloc[:, 2:].reset_index(drop=True)
-    print(f"Done (identified {sum([len(pairs[machine_id]) for machine_id in pairs])} pair(s))")
-
-    print("Preparing predictions... ", end="")
-    sys.stdout.flush()
-    n_iterations = 5
-    parameters = None
-    length = None
-    for machine_id in pairs:
-        for variation in pairs[machine_id]:
-            avg_data = pairs[machine_id][variation].iloc[:, :]
-            for i in range(0, len(avg_data), n_iterations):
-                for j in range(1, n_iterations):
-                    if i + j >= len(data):
-                        print(f"\nERROR: List of benchmarks is not nicely dividable by {n_iterations}.")
-                        return -1
-                    avg_data.iloc[i, 10:16] += avg_data.iloc[i + j, 10:16]
-                avg_data.iloc[i, 10:16] /= n_iterations
-            avg_data = avg_data.iloc[::5].reset_index(drop=True)
-            pairs[machine_id][variation] = avg_data.drop(columns=["iteration"])
-            if length is None: length = len(pairs[machine_id][variation])
-            elif length != len(pairs[machine_id][variation]):
-                print("\nERROR: Not all hardware / variation pairs have the same length.", file=sys.stderr)
-                return -1
-            # Also extract the parameter list
-            if parameters is None: parameters = pairs[machine_id][variation].iloc[:, :7]
-            elif not parameters.iloc[:, 1:].equals(pairs[machine_id][variation].iloc[:, 1:7]):
-                print("\nERROR: Not all parameters are the same for all implementation / hardware pairs.", file=sys.stderr)
-                return -1
-            pairs[machine_id][variation] = pairs[machine_id][variation].iloc[:, 7:]
-    print(f"Done\n")
+    parameters = defaultdict(lambda: defaultdict(lambda: {"n": 0, "data": None}))
+    for i, row in data.iterrows():
+        # Get the parameter set as tuple
+        hw_imp_pair = tuple(row.iloc[0:2])
+        parameter_set = tuple(row.iloc[3:10])
+        if parameters[parameter_set][hw_imp_pair]["n"] == 0:
+            parameters[parameter_set][hw_imp_pair]["data"] = np.array(row.iloc[10:])
+        else:
+            parameters[parameter_set][hw_imp_pair]["data"] += np.array(row.iloc[10:])
+        parameters[parameter_set][hw_imp_pair]["n"] += 1
+    # Once done, average all things
+    parameters = {
+        params: {
+            hw_imp_pair: tuple(parameters[params][hw_imp_pair]["data"] / parameters[params][hw_imp_pair]["n"]) for hw_imp_pair in parameters[params]
+        } for params in parameters
+    }
+    print("Done\n")
 
     print("Opening output file... ", end="")
     try:
@@ -129,35 +118,94 @@ def main(models_path, csv_path, output_path):
     print("Done")
     print("Writing CSV headers... ", end="")
     output.write("ranking_id,ranking_position,n_threads,n_hidden_layers,nodes_per_layer,n_epochs,n_samples,sample_size,n_classes,predicted_machine,predicted_variation,predicted_runtime,benchmarked_machine,benchmarked_variation,benchmarked_runtime\n")
-    print("Done")
+    print("Done\n")
 
     # Time to predict
-    for i, row in parameters.iterrows():
-        # Loop through the machines & pairs
-        pred_runtimes = []
-        empi_runtimes = []
-        for machine_id in pairs:
-            for variation in pairs[machine_id]:
-                pred_runtimes.append([machine_id, variation] + [runtime for runtime in models[variation].predict(row, MACHINES[machine_id])])
-                empi_runtimes.append([machine_id, variation] + list(pairs[machine_id][variation].iloc[i, 1:]))
+    print("Predicting and comparing...")
+    total = 0
+    correct = 0
+    hw_total = defaultdict(int)
+    hw_incorrect = defaultdict(int)
+    var_total = defaultdict(int)
+    var_incorrect = defaultdict(int)
+    time_offset = defaultdict(lambda: defaultdict(list))
+    for params in parameters:
+        config_set = parameters[params]
+        predicted_ranking = []
+        benchmark_ranking = []
+        for machine_id, variation in config_set:
+            # Predict the runtime for this ranking
+            predicted_ranking.append([machine_id, variation] + [runtime for runtime in models[variation].predict(params, MACHINES[machine_id])])
+            # Also add the runtimes for the benchmarking
+            benchmark_ranking.append([machine_id, variation] + [runtime for runtime in config_set[(machine_id, variation)]])
+        
+        # Sort both rankings to actually rank them
+        predicted_ranking = sorted(predicted_ranking, key=lambda elem: elem[2])
+        benchmark_ranking = sorted(benchmark_ranking, key=lambda elem: elem[3])
 
-        # Sort both the predicted and benchmarked runtimes
-        pred_runtimes = sorted(pred_runtimes, key=lambda elem: elem[2])
-        empi_runtimes = sorted(empi_runtimes, key=lambda elem: elem[2])
+        # Compare if the machines are the same
+        matches = True
+        for i in range(len(config_set)):
+            machine_id = predicted_ranking[i][0]
+            variation = predicted_ranking[i][1]
 
-        # Print 'em
-        print(f"Ranking for input ({','.join([str(parameters[p][i]) for p in parameters])}):")
-        for j, pred_pair in enumerate(pred_runtimes):
-            empi_pair = empi_runtimes[j]
+            # Update the total
+            hw_total[machine_id] += 1
+            var_total[variation] += 1
 
-            text = f"  {j + 1}) {pred_pair[0].upper()} on {pred_pair[1].upper()} ({pred_pair[2]}s)"
-            text += " " * (55 - len(text)) + "VS "
-            text += f"  {empi_pair[0].upper()} on {empi_pair[1].upper()} ({empi_pair[2]}s)"
-            print(text)
+            # Compute and store the time offset
+            offset = benchmark_ranking[i][3] / predicted_ranking[i][2]
+            time_offset[machine_id][variation].append(offset)
 
-            # Write 'em to a file
-            output.write(f"{i},{j},{','.join([str(elem) for elem in row])},{pred_pair[0]},{pred_pair[1]},{pred_pair[2]},{empi_pair[0]},{empi_pair[1]},{empi_pair[2]}\n")
-        print("")
+            if machine_id != benchmark_ranking[i][0] or variation != benchmark_ranking[i][1]:
+                matches = False
+                # Add an incorrect mark to both the hardware and the incorrect
+                hw_incorrect[machine_id] += 1
+                var_incorrect[variation] += 1
+                
+        
+        # If they aren't, let the user know
+        if not matches:
+            # Print that they differ
+            print(f"\nResults for parameters {params} differ:")
+            print("  Predicted:" + " " * 44 + "Benchmarked:")
+            for i in range(len(config_set)):
+                text = f"   {i + 1}) {predicted_ranking[i][0].upper()} with {predicted_ranking[i][1].upper()} ({predicted_ranking[i][2]:.4f}s)"
+                text += " " * (50 - len(text)) + " VS "
+                text += f"   {i + 1}) {benchmark_ranking[i][0].upper()} with {benchmark_ranking[i][1].upper()} ({benchmark_ranking[i][2]:.4f}s)"
+                print(text)
+            print("")
+
+        # Update the accuracy score
+        total += 1
+        correct += 1 if matches else 0
+
+    print("\n***STATS***\n")
+    print("Ranking accuracy:")
+    print(f" - Overall accuracy: {(correct / total * 100):.2f}%")
+    print(" - Accuracy per machine:")
+    for m in hw_total:
+        print(f"    - {m} : {(hw_total[m] - hw_incorrect[m]) / hw_total[m] * 100:.2f}%")
+    print(" - Accuracy per variation:")
+    for v in var_total:
+        print(f"    - {v} : {(var_total[v] - var_incorrect[v]) / var_total[v] * 100:.2f}%")
+
+    print("\nRatio of prediction time to benchmark time per machine, per variation:")
+    for m in time_offset:
+        print(f" - {m}:")
+        for v in time_offset[m]:
+            offsets = time_offset[m][v]
+            print(f"    - {v}:")
+
+            # Compute the mean first
+            mean = sum(offsets) / len(offsets)
+            print(f"       - mean     = {mean:.2f}x")
+
+            # Then, the variance
+            var = sum([(offset - mean) ** 2 for offset in offsets]) / len(offsets)
+            print(f"       - variance = {var:.2f}")
+
+    print("\nDone.\n")
 
     output.close()
     return 0
