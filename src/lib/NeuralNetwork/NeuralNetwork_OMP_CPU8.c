@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/15/2020, 12:12:22 AM
+ *   6/17/2020, 11:22:22 PM
  * Auto updated?
  *   Yes
  *
@@ -215,7 +215,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         // Do the other, hidden layers (1 iteration, non-parallelizable)
         for (size_t l = nn->n_layers - 2; l > 0; l--) {
             // Set some shortcuts
-            double* weight = weights[l - 1];
+            double* weight_next = weights[l];
             delta_bias = delta_biases[l - 1];
             delta_weight = delta_weights[l - 1];
             this_outputs = layer_outputs[l];
@@ -236,7 +236,7 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     double error = 0;
                     #pragma omp simd
                     for (size_t next_n = 0; next_n < next_nodes; next_n++) {
-                        error += sample_prev_deltas[next_n] * weight[n * next_nodes + next_n];
+                        error += sample_prev_deltas[next_n] * weight_next[n * next_nodes + next_n];
                     }
 
                     // Multiply the error with the derivative of the activation function to find the result
