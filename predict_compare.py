@@ -21,10 +21,32 @@ DEFAULT_OUTPUT_FILE = "rankings.csv"
 # Fill in the machine performance data please (as (preak_performance, n_cores, n_avx_elements, peak_mem_bandwidth)) The bandwidth is over a single core.
 # NOTE: home_desktop & macbook gflops from https://www.intel.com/content/dam/support/us/en/documents/processors/APP-for-Intel-Core-Processors.pdf
 # NOTE: home_desktop & macbook gbs obtained with LIKWID.
+# NOTE: All cpu peak performances are divided by 4 (home_dekstop & DAS) or 2 (macbook) to account for SIMD
 MACHINES = {
-    "home_desktop": (460.8, 16, 4, 14936.06),
-    # "DAS5": (0.1, 32, 4, 0.1),
-    "macbook": (46.4, 4, 4, 11163.92)
+    "home_desktop": {
+        1: (7.2, 14.93606),
+        2: (14.4, 15.86464),
+        4: (28.8, 16.50343),
+        8: (57.6, 16.94652),
+        16: (115.2, 17.09865),
+        32: (115.2, 17.01528)
+    },
+    "DAS5": {
+        1: (2.4, 11.243346081),
+        2: (4.8, 0),
+        4: (9.6, 0),
+        8: (19.2, 0),
+        16: (38.4, 0),
+        32: (76.8, 99.929263299000013)
+    },
+    "macbook": {
+        1: (5.8, 11.16392),
+        2: (11.6, 10.22710),
+        4: (23.2, 11.60071),
+        8: (23.2, 11.54814),
+        16: (23.2, 11.55648),
+        32: (23.2, 11.55118)
+    }
 }
 
 
