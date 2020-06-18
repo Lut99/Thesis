@@ -1,8 +1,8 @@
 """
-    OMP CPU2.py
+    OMP CPU3.py
         by Tim Müller
     
-    This file implements the analytical model for the second variation of the
+    This file implements the analytical model for the third variation of the
     OpenMP CPU-optimised implementations.
 """
 

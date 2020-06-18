@@ -60,20 +60,25 @@ MACHINES = {
 }
 
 
-def main(models_path, csv_path, output_path):
+def main(models_path, csv_files, output_path):
     print("\n### PREDICTION TOOL for ANALYTICAL MODELS ###\n")
 
     print(f"Tool configuration:")
-    print(f" - Models folder     : {models_path}")
-    print(f" - Benchmark data    : \"{csv_path}\"")
+    print(f" - Models folder       : {models_path}")
+    print(f" - Benchmark datafiles :")
+    for csv in csv_files:
+        print(f"    - '{csv}'")
     print("")
 
     print("Loading benchmark results... ", end="")
     sys.stdout.flush()
-    data = pd.read_csv(csv_path)
+    data = pd.DataFrame()
+    for csv in csv_files:
+        csv_data = pd.read_csv(csv)
+        data = pd.concat([data, csv_data], ignore_index=True)
     # Check if we got any
     if len(data) == 0:
-        print(f"\n\nERROR: CSV file does not contain any benchmarks.", file=sys.stderr)
+        print(f"\n\nERROR: No benchmarks found in any of the given files.", file=sys.stderr)
         return -1
     print(f"Done (loaded {len(data)} benchmark(s))")
 
@@ -215,18 +220,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-o", "--output", default=DEFAULT_OUTPUT_FILE, required=False, help=f"Path the output file to which the rankings will be written. (Default: {DEFAULT_OUTPUT_FILE})")
-    parser.add_argument("-c", "--csv", default=DEFAULT_CSV, required=False, help=f"Path to the CSV that contains benchmarks. (Default: {DEFAULT_CSV})")
+    parser.add_argument("-c", "--csvs", nargs='+', required=True, help=f"Files to load the benchmarks from. Can be more than one, which will be pasted internally after one another.")
     parser.add_argument("-M", "--models", default=DEFAULT_MODEL_FOLDER, required=False, help=f"Path to the folder containing the model implementations. (Default: {DEFAULT_MODEL_FOLDER})")
 
     args = parser.parse_args()
     
-    # Check the validity of the CSV file
-    if not os.path.exists(args.csv):
-        print(f"ERROR: File '{args.csv}' does not exist.", file=sys.stderr)
-        exit(-1)
-    if not os.path.isfile(args.csv):
-        print(f"ERROR: File '{args.csv}' is not a file.", file=sys.stderr)
-        exit(-1)
+    # Check the validity of the CSV files
+    for csv in args.csvs:
+        if not os.path.exists(csv):
+            print(f"ERROR: File '{csv}' does not exist.", file=sys.stderr)
+            exit(-1)
+        if not os.path.isfile(csv):
+            print(f"ERROR: File '{csv}' is not a file.", file=sys.stderr)
+            exit(-1)
     
     # Check if the models folder exists
     if not os.path.exists(args.models):
@@ -237,4 +243,4 @@ if __name__ == "__main__":
         exit(-1)
 
     # So far so good, let's run main
-    exit(main(args.models, args.csv, args.output))
+    exit(main(args.models, args.csvs, args.output))
