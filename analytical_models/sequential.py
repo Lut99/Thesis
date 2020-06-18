@@ -72,19 +72,19 @@ def t_bck_hid(pi, beta, L, P):
     return result
 
 def t_bh_delta(pi, beta, p, p1):
-    f = f_bh_delta(p, p1)
-    b = b_bh_delta(p, p1)
+    return p * (t_bh_sum(pi, beta, p1) + t_bh_comp(pi, beta))
 
-    if pi >= beta * (f / b):
-        return f / pi
+def t_bh_sum(pi, beta, p):
+    if pi >= beta * (1 / 8):
+        return (2 * p) / pi
     else:
-        return b / beta
+        return (16 * p) / beta
 
-def f_bh_delta(p, p1):
-    return p * (2 * p1 + 3)
-
-def b_bh_delta(p, p1):
-    return p * (16 * p1 + 16)
+def t_bh_comp(pi, beta):
+    if pi >= beta * (3 / 16):
+        return 3 / pi
+    else:
+        return 16 / beta
 
 
 
