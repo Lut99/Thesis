@@ -21,41 +21,41 @@ DEFAULT_MODEL_FOLDER = "analytical_models/"
 DEFAULT_OUTPUT_FILE = "rankings.csv"
 
 # Fill in the machine performance data please (as (preak_performance, n_cores, n_avx_elements, peak_mem_bandwidth)) The bandwidth is over a single core.
-# NOTE: home_desktop & macbook gflops from https://www.intel.com/content/dam/support/us/en/documents/processors/APP-for-Intel-Core-Processors.pdf
-# NOTE: home_desktop & macbook gbs obtained with LIKWID.
-# NOTE: All cpu peak performances are divided by 4 (home_dekstop & DAS) or 2 (macbook) to account for SIMD
+# NOTE: hall GFLOP/s from https://www.intel.com/content/dam/support/us/en/documents/processors/APP-for-Intel-Core-Processors.pdf
+# NOTE: all GB/s obtained with LIKWID (copy or copy-avx, 1GB load).
+# NOTE: First two are non-simd, second two are yes-simd
 MACHINES = {
     "home_desktop": {
-        1: (7.2, 14.93606),
-        2: (14.4, 15.86464),
-        4: (28.8, 16.50343),
-        8: (57.6, 16.94652),
-        16: (115.2, 17.09865),
-        32: (115.2, 17.01528)
+        1: (7.2, 14.93606, 28.8, 14.33228),
+        2: (14.4, 15.86464, 57.6, 15.65240),
+        4: (28.8, 16.50343, 115.2, 17.38215),
+        8: (57.6, 16.94652, 230.4, 17.19413),
+        16: (115.2, 17.09865, 460.8, 17.09826),
+        32: (115.2, 17.01528, 460.8, 17.18359)
     },
     "DAS5_1numa": {
-        1: (2.4, 11.53074),
-        2: (4.8, 12.49312),
-        4: (9.6, 22.43777),
-        8: (19.2, 30.47322),
-        16: (38.4, 31.12496),
-        32: (76.8, 31.10337)
+        1: (2.4, 11.53074, 9.6, 11.42862),
+        2: (4.8, 12.49312, 19.2, 12.27604),
+        4: (9.6, 22.43777, 38.4, 20.62895),
+        8: (19.2, 30.47322, 76.8, 27.52148),
+        16: (38.4, 31.12496, 153.6, 28.11800),
+        32: (76.8, 31.10337, 307.2, 28.10550)
     },
     "DAS5": {
-        1: (2.4, 11.53074),
-        2: (4.8, 22.61996),
-        4: (9.6, 24.99948),
-        8: (19.2, 45.96919),
-        16: (38.4, 60.74498),
-        32: (76.8, 62.18000)
+        1: (2.4, 11.53074, 9.6, 11.42862),
+        2: (4.8, 22.61996, 19.2, 21.99305),
+        4: (9.6, 24.99948, 38.4, 24.37255),
+        8: (19.2, 45.96919, 76.8, 41.58752),
+        16: (38.4, 60.74498, 153.6, 55.02765),
+        32: (76.8, 62.18000, 307.2, 56.00466)
     },
     "macbook": {
-        1: (5.8, 11.16392),
-        2: (11.6, 10.22710),
-        4: (23.2, 11.60071),
-        8: (23.2, 11.54814),
-        16: (23.2, 11.55648),
-        32: (23.2, 11.55118)
+        1: (5.8, 11.16392, 11.6, 11.26597),
+        2: (11.6, 10.22710, 23.2, 10.38897),
+        4: (23.2, 11.60071, 46.4, 11.72698),
+        8: (23.2, 11.54814, 46.4, 11.68686),
+        16: (23.2, 11.55648, 46.4, 11.67511),
+        32: (23.2, 11.55118, 46.4, 11.57948)
     }
 }
 
@@ -167,6 +167,9 @@ def main(models_path, csv_files, output_path):
                 # Add an incorrect mark to both the hardware and the incorrect
                 hw_incorrect[machine_id] += 1
                 var_incorrect[variation] += 1
+            
+            # Print the ranking
+            output.write(f"{total},{i},{','.join([str(p) for p in params])},{machine_id},{variation},{predicted_ranking[i][2]},{benchmark_ranking[i][0]},{benchmark_ranking[i][1]},{benchmark_ranking[i][3]}\n")
                 
         
         # If they aren't, let the user know
