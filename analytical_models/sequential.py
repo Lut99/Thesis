@@ -14,25 +14,26 @@ F_EXP = 12
 
 # FORWARD PASS
 def t_fwd(pi, beta, L, P):
-    f = f_fwd(L, P)
-    b = b_fwd(L, P)
+    result = 0
+    for l in range(1, L):
+        result += P[l] * (t_f_sum(pi, beta, P[l - 1]) + t_f_act(pi, beta))
+    return result
 
-    if pi >= beta * (f / b):
+def t_f_sum(pi, beta, p):
+    frac = (2 * p) / (8 + 16 * p)
+
+    if pi >= beta * frac:
+        return (2 * p) / pi
+    else:
+        return (8 + 16 * p) / beta
+    
+def t_f_act(pi, beta):
+    f = 2 + F_DIV + F_EXP
+
+    if pi >= beta * (f / 8):
         return f / pi
     else:
-        return b / pi
-    
-def f_fwd(L, P):
-    result = 0
-    for l in range(1, L):
-        result += P[l] * (2 * P[l - 1] + 2 + F_DIV + F_EXP)
-    return result
-
-def b_fwd(L, P):
-    result = 0
-    for l in range(1, L):
-        result += P[l] * (16 + 16 * P[l - 1])
-    return result
+        return 8 / beta
 
 
 
