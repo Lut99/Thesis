@@ -19,8 +19,8 @@ def predict(sample_parameters, machine_parameters):
     N = int(sample_parameters[3])
     S = int(sample_parameters[4])
 
-    pi_1 = machine_parameters[0][0] * 1000000000
-    beta_1 = machine_parameters[0][1] * 1000000000
+    pi_1 = machine_parameters[1][0] * 1000000000
+    beta_1 = machine_parameters[1][1] * 1000000000
     pi_C = machine_parameters[n_threads][0] * 1000000000
     beta_C = machine_parameters[n_threads][1] * 1000000000
 
