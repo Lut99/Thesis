@@ -229,13 +229,24 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Check the validity of the CSV files
-    for csv in args.csvs:
+    csvs = []
+    while len(args.csvs) > 0:
+        csv = args.csvs[0]
+        args.csvs = args.csvs[1:]
+
         if not os.path.exists(csv):
             print(f"ERROR: File '{csv}' does not exist.", file=sys.stderr)
             exit(-1)
-        if not os.path.isfile(csv):
+        if os.path.isdir(csv):
+            # Append all this folder's children to the list
+            csvs += [os.path.join(csv, f) for f in os.listdir(csv)]
+            continue
+        elif not os.path.isfile(csv):
             print(f"ERROR: File '{csv}' is not a file.", file=sys.stderr)
             exit(-1)
+        
+        # Append the file
+        csvs.append(csv)
     
     # Check if the models folder exists
     if not os.path.exists(args.models):
@@ -246,4 +257,4 @@ if __name__ == "__main__":
         exit(-1)
 
     # So far so good, let's run main
-    exit(main(args.models, args.csvs, args.output))
+    exit(main(args.models, csvs, args.output))
