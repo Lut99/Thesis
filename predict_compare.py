@@ -60,7 +60,7 @@ MACHINES = {
 }
 
 
-def main(models_path, csv_files, output_path):
+def main(models_path, csv_files, output_path, show_all, show_none):
     print("\n### PREDICTION TOOL for ANALYTICAL MODELS ###\n")
 
     print(f"Tool configuration:")
@@ -173,7 +173,7 @@ def main(models_path, csv_files, output_path):
                 
         
         # If they aren't, let the user know
-        if not matches:
+        if not show_none and (show_all or not matches):
             # Print that they differ
             print(f"\nResults for parameters {params} differ:")
             print("  Predicted:" + " " * 44 + "Benchmarked:")
@@ -225,6 +225,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", default=DEFAULT_OUTPUT_FILE, required=False, help=f"Path the output file to which the rankings will be written. (Default: {DEFAULT_OUTPUT_FILE})")
     parser.add_argument("-c", "--csvs", nargs='+', required=True, help=f"Files to load the benchmarks from. Can be more than one, which will be pasted internally after one another.")
     parser.add_argument("-M", "--models", default=DEFAULT_MODEL_FOLDER, required=False, help=f"Path to the folder containing the model implementations. (Default: {DEFAULT_MODEL_FOLDER})")
+    parser.add_argument("-a", "--all", action="store_true", help="If given, displays all rankings instead of just the incorrect ones.")
+    parser.add_argument("-s", "--silent", action="store_true", help="If given, displays no rankings at all (overrides --all).")
 
     args = parser.parse_args()
     
@@ -257,4 +259,4 @@ if __name__ == "__main__":
         exit(-1)
 
     # So far so good, let's run main
-    exit(main(args.models, csvs, args.output))
+    exit(main(args.models, csvs, args.output, args.all, args.silent))
