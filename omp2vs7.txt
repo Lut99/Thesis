@@ -1,0 +1,23 @@
+OMP CPU 2
+    FORWARD PASS
+        Average time for the forward pass : 0.000006s
+            Average thread duration : 0.004189s
+                           Variance : 0.025035
+    BACKWARD PASS
+        Average time for the backward pass - output : 0.000021s
+        Average time for the backward pass - hidden : 0.000026s
+    UPDATES:
+        Average time for the updates : 0.000023s
+
+OMP CPU 7
+    FORWARD PASS
+        Average time for the forward pass : 0.001866s
+            Average thread duration : 0.000000s
+                           Variance : 0.000000
+    BACKWARD PASS
+        Average time for the backward pass - output : 0.000301s
+        Average time for the backward pass - hidden : 0.001865s
+            Average thread duration : 0.000000s
+                           Variance : 0.000000
+    UPDATES
+        Average time for the updates : 0.000006s
