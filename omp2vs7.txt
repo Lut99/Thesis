@@ -21,3 +21,16 @@ OMP CPU 7
                            Variance : 0.000000
     UPDATES
         Average time for the updates : 0.000006s
+
+HYPOTHESIS 1: Speedup is explained by smaller workload per element for thread,
+              making it more balanced and therefore faster, as more can be
+              done in parallel towards the end. Even though this is a small
+              difference, the number of iterations blows this up.
+
+EXPERIMENT A: Prove / disprove this by running with a lot of samples and small
+              network nodes per layer, to minimize the size of the parallelized
+              region and therefore the effect of this phenomanon
+RESULT:       OpenMP 7 is still significantly faster; theory seems disproven
+
+EXPERIMENT B: Try again, this time with no hidden layers and still a reasonable
+              node size for the input layer

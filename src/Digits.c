@@ -4,7 +4,7 @@
  * Created:
  *   21/04/2020, 11:46:37
  * Last edited:
- *   6/14/2020, 1:52:07 PM
+ *   6/20/2020, 23:45:18
  * Auto updated?
  *   Yes
  *
@@ -319,7 +319,7 @@ int main(int argc, char** argv) {
     #ifndef BENCHMARK
     printf("  Initializing Neural Network...\n");
     #endif
-    size_t hidden_layer_nodes[] = {20};
+    size_t hidden_layer_nodes[] = {300};
     neural_net* nn = create_nn(64, 1, hidden_layer_nodes, n_classes);
 
     // Train the neural network for ITERATIONS iterations
