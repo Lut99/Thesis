@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/15/2020, 1:58:22 PM
+ *   6/20/2020, 5:25:49 PM
  * Auto updated?
  *   Yes
  *
@@ -51,6 +51,27 @@ extern int omp_get_thread_num();
 extern size_t max(size_t length, const size_t* list);
 
 
+double mean(size_t length, double* list) {
+    double total = 0;
+    for (size_t i = 0; i < length; i++) {
+        total += list[i];
+    }
+    return total / length;
+}
+
+
+double variance(size_t length, double* list) {
+    // COmpute the mean
+    double m = mean(length, list);
+    // Use that to compute the variance
+    double total = 0;
+    for (size_t i = 0; i < length; i++) {
+        total += (list[i] - m) * (list[i] - m);
+    }
+    return total / length;
+}
+
+
 
 /***** NEURAL NETWORK OPERATIONS *****/
 
@@ -65,6 +86,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
     // Start the total timer
     gettimeofday(&s_total, NULL);
+    #else
+    double t_fwd = 0;
     #endif
 
     // Also obtain links to all biases / matrices
@@ -124,8 +147,19 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
             double* t_prev_deltas = prev_deltas + TID * deltas_size;
             double** t_layer_outputs = layer_outputs[TID];
 
+            #ifndef BENCHMARK
+            // Define a list to keep track of each sample's duration
+            double benchmarks[n_samples];
+            #endif
+
             #pragma omp for schedule(static)
             for (size_t s = 0; s < n_samples; s++) {
+                #ifndef BENCHMARK
+                // Start the sample timer
+                struct timeval s_sample, e_sample;
+                gettimeofday(&s_sample, NULL);
+                #endif
+
                 /***** FORWARD PASS *****/
 
                 #ifdef BENCHMARK
@@ -133,6 +167,10 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                 if (i == half_iters && s == half_samples) {
                     gettimeofday(&s_fwd, NULL);
                 }
+                #else
+                // Start the forward pass timer
+                struct timeval s_fwd, e_fwd;
+                gettimeofday(&s_fwd, NULL);
                 #endif
 
                 // Set the inputs as the first layer
@@ -167,6 +205,10 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     gettimeofday(&e_fwd, NULL);
                     gettimeofday(&s_bck_out, NULL);
                 }
+                #else
+                // End forward timer, add to average
+                gettimeofday(&e_fwd, NULL);
+                t_fwd += TIMEVAL_TO_MS(s_fwd, e_fwd);
                 #endif
 
                 /***** BACKWARD PASS *****/
@@ -256,7 +298,23 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     gettimeofday(&e_bck_hid, NULL);
                 }
                 #endif
+
+                #ifndef BENCHMARK
+                // End the sample timer
+                gettimeofday(&e_sample, NULL);
+                benchmarks[s] = TIMEVAL_TO_MS(s_sample, e_sample);
+                #endif
+
             }
+
+            #ifndef BENCHMARK
+            #pragma omp single
+            {
+                // Print the results
+                printf("\nAverage thread duration : %fs\n", mean(n_samples, benchmarks));
+                printf("               Variance : %f\n", variance(n_samples, benchmarks));
+            }
+            #endif
 
             #ifdef BENCHMARK
             // Start the updates timer
@@ -332,6 +390,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     printf("%f\n", TIMEVAL_TO_MS(s_bck_out, e_bck_out));
     printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
     printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
+    #else
+    // Print dat average
+    printf("Average time for the forward pass : %fs\n", t_fwd / (n_iterations * n_samples));
     #endif
 }
 
