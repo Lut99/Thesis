@@ -33,6 +33,14 @@ def is_float(n):
     except ValueError:
         return False
 
+def is_float_l(list):
+    try:
+        for elem in list:
+            float(elem)
+        return True
+    except ValueError:
+        return False
+
 
 def run(var_ID, params, das_reservation):
     cmd = ["bin/digits.out", "./digits.csv"] + [str(params[header]) for header in HEADERS if header in params]
@@ -49,12 +57,12 @@ def run(var_ID, params, das_reservation):
     
     # Fetch the result and try to parse the Time taken from it
     out = result.stdout.decode('utf-8')
-    data = out.split(",")
-    if len(data) != 2 or not is_float(data[0]) or not is_float(data[1]):
-        print(f"\nERROR: Failed to retrieve performance data from '{' '.join(cmd)}': expected two numbers separated by comma, got: \"{out}\".", file=sys.stderr)
+    data = [elem for elem in out.split("\n") if len(elem) > 0]
+    if len(data) != 6 or not is_float_l(data):
+        print(f"\nERROR: Failed to retrieve performance data from '{' '.join(cmd)}': expected six numbers separated by newlines, got: \"{out}\".", file=sys.stderr)
         exit(-1)
 
-    return float(data[0]), float(data[1])
+    return data
 
 
 def compile(var_ID):
@@ -80,8 +88,8 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
         sys.stdout.flush()
 
         # Run it
-        runtime, cputime = run(var_ID, params, das_reservation)
-        print(f" {runtime}s")
+        runtimes = run(var_ID, params, das_reservation)
+        print(f" {runtimes[0]}s")
 
         # Write the info about this run and the result to the file
         print(f"{var_ID},{i}", file=outputfile, end="")
@@ -91,9 +99,9 @@ def run_benchmark(outputfile, var_ID, iterations, params, das_reservation,):
             else:
                 # For headers that are not present in the current parameters, just print a '-'
                 print(f",-", file=outputfile, end="")
-        print(f",{runtime},{cputime}", file=outputfile)
+        print(f",{runtimes[0]}", file=outputfile)
 
-        avg_runtime += runtime
+        avg_runtime += float(runtimes[0])
     if len(params) > 0:
         print("   ", end="")
     print(f"       > Average: {avg_runtime / iterations} seconds")
@@ -128,7 +136,7 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     print(" Done\n")
 
     print("Writing headers...", end="")
-    print("variation,iteration," + ",".join(HEADERS) + ",runtime,cputime", file=output)
+    print("variation,iteration," + ",".join(HEADERS) + ",runtime", file=output)
     print(" Done\n")
 
     print("Splitting variations by functionality...")
@@ -202,6 +210,19 @@ def main(outputpath, variations, threads, iterations, das_reservation):
     # Finally, GPU benchmarks
     if len(gpus) > 0:
         print("Performing benchmarks for GPU implementations")
+        for gpu in gpus:
+            print(f" > Variation: {gpu}")
+
+            # Compile first
+            print("      Compiling...", end="")
+            sys.stdout.flush()
+            compile(gpu)
+            print(" Done")
+
+            # Run for the different parameters
+            print("      Running...")
+            run_benchmark(output, gpu, iterations, {}, das_reservation)
+            print("      Done")
         print("Done\n")
 
     # Close output file
@@ -266,6 +287,11 @@ if __name__ == "__main__":
         # First, check if the files exist
         for var_ID in args.variations:
             path = os.path.join(args.directory, "NeuralNetwork_" + var_ID + ".c")
+            if not os.path.exists(path):
+                # Try again with cuda file
+                print(f"WARNING: File \"{path}\" does not exist, retrying for .cu variation...")
+                path = os.path.join(args.directory, "NeuralNetwork_" + var_ID + ".cu")
+
             if not os.path.exists(path):
                 print(f"ERROR: File \"{path}\" does not exist.", file=sys.stderr)
                 exit(-1)

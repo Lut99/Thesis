@@ -30,7 +30,7 @@ HYPOTHESIS 1: Speedup is explained by smaller workload per element for thread,
 EXPERIMENT A: Prove / disprove this by running with a lot of samples and small
               network nodes per layer, to minimize the size of the parallelized
               region and therefore the effect of this phenomanon
-RESULT:       OpenMP 7 is still significantly faster; theory seems disproven
+RESULT:       OpenMP 7 is still significantly faster; theory seems disproven (3+ hours omp2, 9041 seconds omp7)
 
 EXPERIMENT B: Try again, this time with no hidden layers and still a reasonable
-              node size for the input layer
+              node size for the input layer (331.592680 seconds omp2, 117.775581 seconds omp7)
