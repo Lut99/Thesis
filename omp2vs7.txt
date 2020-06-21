@@ -34,3 +34,40 @@ RESULT:       OpenMP 7 is still significantly faster; theory seems disproven (3+
 
 EXPERIMENT B: Try again, this time with no hidden layers and still a reasonable
               node size for the input layer (331.592680 seconds omp2, 117.775581 seconds omp7)
+
+
+UNINTENDED EXPERIMENT C: Just compare the entire benchmarks, see what happens
+
+RESULT:
+Difference detected @ (2, 1, 100, 500, 500, 50, 10): 11.589242s VS 11.665383s
+Difference detected @ (2, 1, 500, 500, 500, 50, 10): 51.61720699999999s VS 53.783326s
+Difference detected @ (2, 1, 1000, 500, 500, 50, 10): 101.46736999999999s VS 128.681676s
+Difference detected @ (2, 1, 5000, 500, 500, 50, 10): 515.458007s VS 982.3023150000001s
+Difference detected @ (4, 1, 1000, 500, 500, 50, 10): 71.38563s VS 93.571142s
+Difference detected @ (4, 1, 5000, 500, 500, 50, 10): 327.80530799999997s VS 774.7262089999999s
+Difference detected @ (8, 1, 1000, 500, 500, 50, 10): 72.608478s VS 73.880631s
+Difference detected @ (8, 1, 5000, 500, 500, 50, 10): 422.495621s VS 558.463782s
+Difference detected @ (32, 1, 20, 1, 500, 50, 10): 0.059050000000000005s VS 0.059658s
+Difference detected @ (2, 1, 20, 500, 1, 50, 10): 0.038500999999999994s VS 0.061924000000000014s
+Difference detected @ (4, 1, 20, 500, 1, 50, 10): 0.040957s VS 0.053629s
+Difference detected @ (8, 1, 20, 500, 1, 50, 10): 0.046791s VS 0.06820699999999999s
+Difference detected @ (16, 1, 20, 500, 1, 50, 10): 0.061914000000000004s VS 0.090501s
+Difference detected @ (32, 1, 20, 500, 1, 50, 10): 0.22856800000000002s VS 0.258859s
+Difference detected @ (2, 1, 20, 500, 500, 500, 10): 15.534473000000002s VS 18.739314s
+Difference detected @ (2, 1, 20, 500, 500, 1000, 10): 28.803061999999997s VS 33.933063s
+Difference detected @ (2, 1, 20, 500, 500, 5000, 10): 206.01468s VS 385.04502299999996s
+Difference detected @ (4, 1, 20, 500, 500, 1000, 10): 25.908839s VS 29.454690000000003s
+Difference detected @ (4, 1, 20, 500, 500, 5000, 10): 108.42844300000002s VS 247.273941s
+Difference detected @ (8, 1, 20, 500, 500, 5000, 10): 110.374241s VS 182.230588s
+Difference detected @ (16, 1, 20, 500, 500, 5000, 10): 121.95282600000002s VS 147.331826s
+Difference detected @ (2, 1, 20, 500, 500, 50, 500): 28.670994999999998s VS 35.581921s
+Difference detected @ (2, 1, 20, 500, 500, 50, 1000): 53.927434s VS 65.819983s
+Difference detected @ (2, 1, 20, 500, 500, 50, 5000): 256.944455s VS 472.24537499999997s
+Difference detected @ (4, 1, 20, 500, 500, 50, 500): 18.947447s VS 20.235947s
+Difference detected @ (4, 1, 20, 500, 500, 50, 1000): 34.513881s VS 37.996491999999996s
+Difference detected @ (4, 1, 20, 500, 500, 50, 5000): 172.042843s VS 347.36422600000003s
+Difference detected @ (8, 1, 20, 500, 500, 50, 5000): 129.205035s VS 224.944831s
+Difference detected @ (16, 1, 20, 500, 500, 50, 5000): 135.979287s VS 170.194476s
+In 131 out of 160 cases, OpenMP variation 7 was faster or the same as OpenMP variation 2
+
+> Since the significant speedups happen for large nodes_per_layers and large n_classes. This, however, does seem to support the hypothesis
