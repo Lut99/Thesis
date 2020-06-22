@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/15/2020, 2:23:36 PM
+ *   6/22/2020, 10:53:19 PM
  * Auto updated?
  *   Yes
  *
@@ -920,7 +920,7 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
     // Copy all expected values for each sample, which we have to do row-by-row due to unfortunate formatting of expected
     for (size_t s = 0; s < n_samples; s++) {
         double* ptr = (double*) ((char*) expected_gpu + s * expected_gpu_pitch);
-        cudaMemcpy((void*) ptr, (void*) expected[s], sizeof(double) * nodes_per_layer[0], cudaMemcpyHostToDevice);
+        cudaMemcpy((void*) ptr, (void*) expected[s], sizeof(double) * nodes_per_layer[n_layers - 1], cudaMemcpyHostToDevice);
     }
 
 
