@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/20/2020, 8:35:19 PM
+ *   6/22/2020, 1:09:21 PM
  * Auto updated?
  *   Yes
  *
@@ -49,7 +49,6 @@ extern int omp_get_thread_num();
 #define TIMEVAL_TO_MS(T_START, T_END) (((T_END.tv_sec - T_START.tv_sec) * 1000000 + (T_END.tv_usec - T_START.tv_usec)) / 1000000.0)
 
 extern size_t max(size_t length, const size_t* list);
-
 
 
 /***** NEURAL NETWORK OPERATIONS *****/
