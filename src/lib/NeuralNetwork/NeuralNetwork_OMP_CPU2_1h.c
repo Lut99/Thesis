@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/22/2020, 8:42:23 PM
+ *   6/22/2020, 8:54:08 PM
  * Auto updated?
  *   Yes
  *
@@ -65,6 +65,16 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
     // Start the total timer
     gettimeofday(&s_total, NULL);
+    #else
+    // Declare the time structs
+    struct timeval s_crit, e_crit;
+
+    // Also declare the ones for total / average tracking
+    double t_crit_out[n_threads];
+    double t_crit_hid = 0;
+    for (size_t t = 0; t < n_threads; t++) {
+        t_crit_out[t] = 0;
+    }
     #endif
 
     // Also obtain links to all biases / matrices
@@ -182,7 +192,10 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     t_prev_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
                 }
 
-                // // Do the output layer: compute the bias & weight updates
+                // Do the output layer: compute the bias & weight updates
+                #ifndef BENCHMARK
+                gettimeofday(&s_crit, NULL);
+                #endif
                 #pragma omp critical
                 {  
                     // Add all deltas as delta_biases for this layer
@@ -197,6 +210,10 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         }
                     }
                 }
+                #ifndef BENCHMARK
+                gettimeofday(&e_crit, NULL);
+                t_crit_out[TID] += TIMEVAL_TO_MS(s_crit, e_crit);
+                #endif
             
                 #ifdef BENCHMARK
                 // End the backward pass output timer, start the backward pass hidden timer
@@ -230,18 +247,28 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         t_deltas[n] = error * output_val * (1 - output_val);
                     }
 
-                    // Add all deltas as delta_biases for this layer
-                    #pragma omp critical
-                    {
-                        for (size_t n = 0; n < this_nodes; n++) {
-                            delta_bias[n] += t_deltas[n];
-                        }
-                        // Same for all the weights, except we compute the delta_weights first
-                        for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                    if (TID == 0) {
+                        #ifndef BENCHMARK
+                        gettimeofday(&s_crit, NULL);
+                        #endif
+                        // Do the work for all threads
+                        for (size_t t = 0; t < n_threads; t++) {
+                            double* t_deltas = deltas + t * deltas_size;
+                            
                             for (size_t n = 0; n < this_nodes; n++) {
-                                delta_weight[prev_n * this_nodes + n] += prev_output[prev_n] * t_deltas[n];
+                                delta_bias[n] += t_deltas[n];
+                            }
+                            // Same for all the weights, except we compute the delta_weights first
+                            for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                                for (size_t n = 0; n < this_nodes; n++) {
+                                    delta_weight[prev_n * this_nodes + n] += prev_output[prev_n] * t_deltas[n];
+                                }
                             }
                         }
+                        #ifndef BENCHMARK
+                        gettimeofday(&e_crit, NULL);
+                        t_crit_hid += TIMEVAL_TO_MS(s_crit, e_crit);
+                        #endif
                     }
 
                     // Swap the two delta lists
@@ -332,6 +359,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     printf("%f\n", TIMEVAL_TO_MS(s_bck_out, e_bck_out));
     printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
     printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
+    #else
+    double total_crit_out = 0;
+    double total_crit_hid = t_crit_hid;
+    for (size_t t = 0; t < n_threads; t++) {
+        total_crit_out += t_crit_out[t];
+    }
+    printf("\n\nCritical region runtime - output layer (averaged) : %f us\n", total_crit_out / n_samples / n_iterations * 1000);
+    printf("Critical region runtime - hidden layer (averaged) : %f us\n\n", total_crit_hid / n_samples / n_iterations / (n_layers - 2) * 1000);
     #endif
 }
 
