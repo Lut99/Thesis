@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/22/2020, 12:44:34 PM
+ *   6/22/2020, 8:09:47 PM
  * Auto updated?
  *   Yes
  *
@@ -67,7 +67,8 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     gettimeofday(&s_total, NULL);
     #else
     struct timeval s_crit, e_crit;
-    double t_avg_critical_region = 0;
+    double t_avg_critical_region[n_threads];
+    for (size_t t = 0; t < n_threads; t++) { t_avg_critical_region[t] = 0; }
     #endif
 
     // Also obtain links to all biases / matrices
@@ -185,28 +186,53 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     t_prev_deltas[n] = (sample_expected[n] - output_val) * output_val * (1 - output_val);
                 }
 
-                // Do the output layer: compute the bias & weight updates
-                #ifndef BENCHMARK
-                gettimeofday(&s_crit, NULL);
-                #endif
-                #pragma omp critical
-                {  
-                    // Add all deltas as delta_biases for this layer
-                    for (size_t n = 0; n < last_nodes; n++) {
-                        last_delta_bias[n] += t_prev_deltas[n];
-                    }
-                    // Same for all the weights, except we compute the delta_weights first
-                    double* last_prev_output = t_layer_outputs[n_layers - 2];
-                    for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
+                // // Do the output layer: compute the bias & weight updates
+                // #ifndef BENCHMARK
+                // gettimeofday(&s_crit, NULL);
+                // #endif
+                // #pragma omp critical
+                // {  
+                //     // Add all deltas as delta_biases for this layer
+                //     for (size_t n = 0; n < last_nodes; n++) {
+                //         last_delta_bias[n] += t_prev_deltas[n];
+                //     }
+                //     // Same for all the weights, except we compute the delta_weights first
+                //     double* last_prev_output = t_layer_outputs[n_layers - 2];
+                //     for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
+                //         for (size_t n = 0; n < last_nodes; n++) {
+                //             last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * t_prev_deltas[n];
+                //         }
+                //     }
+                // }
+                // #ifndef BENCHMARK
+                // gettimeofday(&e_crit, NULL);
+                // t_avg_critical_region[TID] += TIMEVAL_TO_MS(s_crit, e_crit);
+                // #endif
+                if (TID == 0) {
+                    #ifndef BENCHMARK
+                    gettimeofday(&s_crit, NULL);
+                    #endif
+                    // Do the work for all threads
+                    for (size_t t = 0; t < n_threads; t++) {
+                        double* t_prev_deltas = prev_deltas + t * deltas_size;
+                        
+                        // Add all deltas as delta_biases for this layer
                         for (size_t n = 0; n < last_nodes; n++) {
-                            last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * t_prev_deltas[n];
+                            last_delta_bias[n] += t_prev_deltas[n];
+                        }
+                        // Same for all the weights, except we compute the delta_weights first
+                        double* last_prev_output = t_layer_outputs[n_layers - 2];
+                        for (size_t prev_n = 0; prev_n < last_prev_nodes; prev_n++) {
+                            for (size_t n = 0; n < last_nodes; n++) {
+                                last_delta_weight[prev_n * last_nodes + n] += last_prev_output[prev_n] * t_prev_deltas[n];
+                            }
                         }
                     }
+                    #ifndef BENCHMARK
+                    gettimeofday(&e_crit, NULL);
+                    t_avg_critical_region[0] += TIMEVAL_TO_MS(s_crit, e_crit);
+                    #endif
                 }
-                #ifndef BENCHMARK
-                gettimeofday(&e_crit, NULL);
-                t_avg_critical_region += TIMEVAL_TO_MS(s_crit, e_crit);
-                #endif
             
                 #ifdef BENCHMARK
                 // End the backward pass output timer, start the backward pass hidden timer
@@ -241,6 +267,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     }
 
                     // Add all deltas as delta_biases for this layer
+                    // #ifndef BENCHMARK
+                    // gettimeofday(&s_crit, NULL);
+                    // #endif
                     #pragma omp critical
                     {
                         for (size_t n = 0; n < this_nodes; n++) {
@@ -253,6 +282,33 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                             }
                         }
                     }
+                    // #ifndef BENCHMARK
+                    // gettimeofday(&e_crit, NULL);
+                    // t_avg_critical_region[TID] += TIMEVAL_TO_MS(s_crit, e_crit);
+                    // #endif
+                    // if (TID == 0) {
+                    //     #ifndef BENCHMARK
+                    //     gettimeofday(&s_crit, NULL);
+                    //     #endif
+                    //     // Do the work for all threads
+                    //     for (size_t t = 0; t < n_threads; t++) {
+                    //         double* t_deltas = deltas + t * deltas_size;
+                            
+                    //         for (size_t n = 0; n < this_nodes; n++) {
+                    //             delta_bias[n] += t_deltas[n];
+                    //         }
+                    //         // Same for all the weights, except we compute the delta_weights first
+                    //         for (size_t prev_n = 0; prev_n < prev_nodes; prev_n++) {
+                    //             for (size_t n = 0; n < this_nodes; n++) {
+                    //                 delta_weight[prev_n * this_nodes + n] += prev_output[prev_n] * t_deltas[n];
+                    //             }
+                    //         }
+                    //     }
+                    //     #ifndef BENCHMARK
+                    //     gettimeofday(&e_crit, NULL);
+                    //     t_avg_critical_region[0] += TIMEVAL_TO_MS(s_crit, e_crit);
+                    //     #endif
+                    // }
 
                     // Swap the two delta lists
                     double* temp = t_deltas;
@@ -343,7 +399,9 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
     printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
     #else
-    printf("Critical region runtime (averaged) : %f\n", t_avg_critical_region / n_samples / n_iterations);
+    double total_avg_crit = 0;//t_avg_critical_region[0];
+    for (size_t t = 0; t < n_threads; t++) { total_avg_crit += t_avg_critical_region[t]; }
+    printf("Critical region runtime (averaged) : %f\n", total_avg_crit / n_samples / n_iterations * 1000);
     #endif
 }
 

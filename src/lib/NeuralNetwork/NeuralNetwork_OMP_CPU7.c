@@ -4,7 +4,7 @@
  * Created:
  *   4/18/2020, 11:25:46 PM
  * Last edited:
- *   6/22/2020, 1:09:21 PM
+ *   6/22/2020, 7:51:22 PM
  * Auto updated?
  *   Yes
  *
@@ -64,6 +64,14 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     // Start the total timer
     gettimeofday(&s_total, NULL);
     #endif
+
+    /************** OMP2/OMP7 : INIT TIMERS **************/
+    #ifndef BENCHMARK
+    struct timeval s_crit_output, e_crit_output, s_crit_hidden, e_crit_hidden;
+    double output_avg_crit = 0;
+    double hidden_avg_crit = 0;
+    #endif
+    /*****************************************************/
 
     
     // Also obtain links to all biases / matrices
@@ -182,6 +190,12 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
         double* delta_weight = delta_weights[n_layers - 2];
         double* prev_outputs = layer_outputs[n_layers - 2];
         for (size_t s = 0; s < n_samples; s++) {
+            /************** OMP2/OMP7 : START OUTPUT TIMER **************/
+            #ifndef BENCHMARK
+            gettimeofday(&s_crit_output, NULL);
+            #endif
+            /************************************************************/
+            
             double* sample_prev_deltas = prev_deltas + s * deltas_size;
             
             // Update the delta biases
@@ -196,6 +210,13 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                     delta_weight[prev_n * this_nodes + n] += sample_outputs[prev_n] * sample_prev_deltas[n];
                 }
             }
+            
+            /************** OMP2/OMP7 : STOP OUTPUT TIMER **************/
+            #ifndef BENCHMARK
+            gettimeofday(&e_crit_output, NULL);
+            output_avg_crit += TIMEVAL_TO_MS(s_crit_output, e_crit_output);
+            #endif
+            /***********************************************************/
         }
 
         #ifdef BENCHMARK
@@ -240,6 +261,12 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
 
             // Use those to update the change in biases and weights (1797 x 20 iterations, non-paralellizable)
             for (size_t s = 0; s < n_samples; s++) {
+                /************** OMP2/OMP7 : START HIDDEN TIMER **************/
+                #ifndef BENCHMARK
+                gettimeofday(&s_crit_hidden, NULL);
+                #endif
+                /************************************************************/
+                
                 double* sample_deltas = deltas + s * deltas_size;
                 
                 // Update the delta biases
@@ -254,6 +281,13 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
                         delta_weight[prev_n * this_nodes + n] += sample_outputs[prev_n] * sample_deltas[n];
                     }
                 }
+                
+                /************** OMP2/OMP7 : STOP HIDDEN TIMER **************/
+                #ifndef BENCHMARK
+                gettimeofday(&e_crit_hidden, NULL);
+                hidden_avg_crit += TIMEVAL_TO_MS(s_crit_hidden, e_crit_hidden);
+                #endif
+                /***********************************************************/
             }
 
             // Swap the deltas and prev_deltas
@@ -334,6 +368,13 @@ void nn_train(neural_net* nn, size_t n_samples, double** inputs, double** expect
     printf("%f\n", TIMEVAL_TO_MS(s_bck_hid, e_bck_hid));
     printf("%f\n", TIMEVAL_TO_MS(s_upd, e_upd));
     #endif
+
+    /************** OMP2/OMP7 : PRINT RESULTS **************/
+    #ifndef BENCHMARK
+    printf("\n\nCritical region - output layer runtime (averaged) : %f us\n", output_avg_crit / n_samples / n_iterations * 1000);
+    printf("Critical region - hidden layer runtime (averaged) : %f us\n\n", hidden_avg_crit / n_samples / n_iterations / (n_layers - 2) * 1000);
+    #endif
+    /*******************************************************/
 }
 
 
