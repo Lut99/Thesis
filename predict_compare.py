@@ -99,8 +99,8 @@ def main(models_path, csv_files, output_path, show_all, show_none):
     parameters = defaultdict(lambda: defaultdict(lambda: {"n": 0, "data": None}))
     for i, row in data.iterrows():
         # Get the parameter set as tuple
-        hw_imp_pair = tuple(row.iloc[0:2])
-        parameter_set = tuple(row.iloc[3:10])
+        hw_imp_pair = tuple(row.iloc[0:2]) + tuple([row.iloc[3]])
+        parameter_set = tuple(row.iloc[4:10])
         if parameters[parameter_set][hw_imp_pair]["n"] == 0:
             parameters[parameter_set][hw_imp_pair]["data"] = np.array(row.iloc[10:])
         else:
@@ -122,7 +122,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
         return -1
     print("Done")
     print("Writing CSV headers... ", end="")
-    output.write("ranking_id,ranking_position,n_threads,n_hidden_layers,nodes_per_layer,n_epochs,n_samples,sample_size,n_classes,predicted_machine,predicted_variation,predicted_runtime,benchmarked_machine,benchmarked_variation,benchmarked_runtime\n")
+    output.write("ranking_id,ranking_position,n_hidden_layers,nodes_per_layer,n_epochs,n_samples,sample_size,n_classes,predicted_machine,predicted_variation,predicted_n_threads,predicted_runtime,benchmarked_machine,benchmarked_variation,benchmarked_n_threads,benchmarked_runtime\n")
     print("Done\n")
 
     # Time to predict
@@ -133,60 +133,71 @@ def main(models_path, csv_files, output_path, show_all, show_none):
     hw_incorrect = defaultdict(int)
     var_total = defaultdict(int)
     var_incorrect = defaultdict(int)
+    thread_total = defaultdict(int)
+    thread_incorrect = defaultdict(int)
     time_offset = defaultdict(lambda: defaultdict(list))
     for params in parameters:
         config_set = parameters[params]
         predicted_ranking = []
         benchmark_ranking = []
-        for machine_id, variation in config_set:
+        for machine_id, variation, n_threads in config_set:
             # Predict the runtime for this ranking
-            predicted_ranking.append([machine_id, variation] + [runtime for runtime in models[variation].predict(params, MACHINES[machine_id])])
+            predicted_ranking.append([machine_id, variation, n_threads] + [runtime for runtime in models[variation].predict(params, MACHINES[machine_id], n_threads)])
             # Also add the runtimes for the benchmarking
-            benchmark_ranking.append([machine_id, variation] + [runtime for runtime in config_set[(machine_id, variation)]])
+            benchmark_ranking.append([machine_id, variation, n_threads] + [runtime for runtime in config_set[(machine_id, variation, n_threads)]])
         
         # Sort both rankings to actually rank them
-        predicted_ranking = sorted(predicted_ranking, key=lambda elem: elem[2])
-        benchmark_ranking = sorted(benchmark_ranking, key=lambda elem: elem[3])
+        predicted_ranking = sorted(predicted_ranking, key=lambda elem: elem[3])
+        benchmark_ranking = sorted(benchmark_ranking, key=lambda elem: elem[4])
 
         # Compare if the machines are the same
         matches = True
         for i in range(len(config_set)):
             machine_id = predicted_ranking[i][0]
             variation = predicted_ranking[i][1]
+            n_threads = predicted_ranking[i][2]
 
             # Update the total
             hw_total[machine_id] += 1
             var_total[variation] += 1
+            thread_total[n_threads] += 1
 
             # Compute and store the time offset
-            offset = benchmark_ranking[i][3] / predicted_ranking[i][2]
-            time_offset[machine_id][variation].append(offset)
+            offset = benchmark_ranking[i][4] / predicted_ranking[i][3]
+            time_offset[(machine_id, n_threads)][variation].append(offset)
 
             if machine_id != benchmark_ranking[i][0] or variation != benchmark_ranking[i][1]:
                 matches = False
                 # Add an incorrect mark to both the hardware and the incorrect
                 hw_incorrect[machine_id] += 1
                 var_incorrect[variation] += 1
+                thread_incorrect[n_threads] += 1
             
             # Print the ranking
-            output.write(f"{total},{i},{','.join([str(p) for p in params])},{machine_id},{variation},{predicted_ranking[i][2]},{benchmark_ranking[i][0]},{benchmark_ranking[i][1]},{benchmark_ranking[i][3]}\n")
+            output.write(f"{total},{i},{','.join([str(p) for p in params])},{machine_id},{variation},{n_threads},{predicted_ranking[i][3]},{benchmark_ranking[i][0]},{benchmark_ranking[i][1]},{benchmark_ranking[i][2]},{benchmark_ranking[i][4]}\n")
                 
         
         # If they aren't, let the user know
         if not show_none and (show_all or not matches):
             # Print that they differ
-            print(f"\nResults for parameters {params} differ:")
-            print("  Predicted:" + " " * 44 + "Benchmarked:")
+            line_size = 60
+            print(f"\nResults for parameters {params} (id {total}) differ:")
+            print("  Predicted:" + " " * (line_size - 6) + "Benchmarked:")
             for i in range(len(config_set)):
-                text = f"   {i + 1}) {predicted_ranking[i][0].upper()} with {predicted_ranking[i][1].upper()} ({predicted_ranking[i][2]:.4f}s)"
-                text += " " * (50 - len(text)) + " VS "
-                text += f"   {i + 1}) {benchmark_ranking[i][0].upper()} with {benchmark_ranking[i][1].upper()} ({benchmark_ranking[i][2]:.4f}s)"
+                n_threads = predicted_ranking[i][2]
+                text = f"   {i + 1}) {predicted_ranking[i][0].upper()} ({n_threads} thread{'' if n_threads == 1 else 's'}) with {predicted_ranking[i][1].upper()} ({predicted_ranking[i][3]:.4f}s)"
+                text += " " * (line_size - len(text)) + " VS "
+                n_threads = benchmark_ranking[i][2]
+                text += f"   {i + 1}) {benchmark_ranking[i][0].upper()} ({n_threads} thread{'' if n_threads == 1 else 's'}) with {benchmark_ranking[i][1].upper()} ({benchmark_ranking[i][4]:.4f}s)"
                 print(text)
             print("")
 
         # Update the accuracy score
         total += 1
         correct += 1 if matches else 0
+    
+    # Convert time_offset in a normal dictionary
+    time_offset = {m: {v: time_offset[m][v].copy() for v in time_offset[m]} for m in time_offset}
 
     print("\n***STATS***\n")
     print("Ranking accuracy:")
@@ -197,12 +208,15 @@ def main(models_path, csv_files, output_path, show_all, show_none):
     print(" - Accuracy per variation:")
     for v in var_total:
         print(f"    - {v} : {(var_total[v] - var_incorrect[v]) / var_total[v] * 100:.2f}%")
+    print(" - Accuracy per amount of threads:")
+    for t in thread_total:
+        print(f"    - {t} : {(thread_total[t] - thread_incorrect[t]) / thread_total[t] * 100:.2f}%")
 
-    print("\nRatio of prediction time to benchmark time per machine, per variation:")
-    for m in time_offset:
-        print(f" - {m}:")
-        for v in time_offset[m]:
-            offsets = time_offset[m][v]
+    print("\nRatio of prediction time to benchmark time per machine (number of threads), per variation:")
+    for m, t in time_offset:
+        print(f" - {m} ({t} threads):")
+        for v in time_offset[(m, t)]:
+            offsets = time_offset[(m, t)][v]
             print(f"    - {v}:")
 
             # Compute the mean first
@@ -210,7 +224,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
             print(f"       - mean     = {mean:.2f}x")
 
             # Then, the variance
-            var = sum([(offset - mean) ** 2 for offset in offsets]) / len(offsets)
+            var = sum([(mean - offset) ** 2 for offset in offsets]) / len(offsets)
             print(f"       - variance = {var:.2f}")
 
     print("\nDone.\n")
