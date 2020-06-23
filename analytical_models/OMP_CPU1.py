@@ -12,12 +12,11 @@ import sequential
 
 # Use the functions in sequential, but inplement our own predict to be able to
 #   differ the pis and betas used
-def predict(sample_parameters, machine_parameters):
-    n_threads = int(sample_parameters[0])
-    L = int(sample_parameters[1]) + 2
-    P = [int(sample_parameters[5])] + [int(sample_parameters[2])] * (L - 2) + [int(sample_parameters[6])]
-    N = int(sample_parameters[3])
-    S = int(sample_parameters[4])
+def predict(sample_parameters, machine_parameters, n_threads):
+    L = int(sample_parameters[0]) + 2
+    P = [int(sample_parameters[4])] + [int(sample_parameters[1])] * (L - 2) + [int(sample_parameters[5])]
+    N = int(sample_parameters[2])
+    S = int(sample_parameters[3])
 
     pi_1 = machine_parameters[1][0] * 1000000000
     beta_1 = machine_parameters[1][1] * 1000000000

@@ -1,0 +1,9 @@
+
+% TODO: Take a look at the difference in the model itself
+% Observations:
+%   - Forward pass: loop over layers on CPU and call kernel that many times, 
+%   - Backward pass:
+%      - Output: single call to kernel on CPU, 
+%      - Hidden: loop over rest of layers on CPU and call kernel that many times, 
+%   - Updates: Reduced kernel calling (complicated) for bias & weights, plus update kernels
+%   - "Cleanup": copy back of biases and weights
