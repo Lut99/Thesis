@@ -148,7 +148,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
         
         # Sort both rankings to actually rank them
         predicted_ranking = sorted(predicted_ranking, key=lambda elem: elem[3])
-        benchmark_ranking = sorted(benchmark_ranking, key=lambda elem: elem[4])
+        benchmark_ranking = sorted(benchmark_ranking, key=lambda elem: elem[3])
 
         # Compare if the machines are the same
         matches = True
@@ -163,7 +163,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
             thread_total[n_threads] += 1
 
             # Compute and store the time offset
-            offset = benchmark_ranking[i][4] / predicted_ranking[i][3]
+            offset = benchmark_ranking[i][3] / predicted_ranking[i][3]
             time_offset[(machine_id, n_threads)][variation].append(offset)
 
             if machine_id != benchmark_ranking[i][0] or variation != benchmark_ranking[i][1]:
@@ -174,7 +174,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
                 thread_incorrect[n_threads] += 1
             
             # Print the ranking
-            output.write(f"{total},{i},{','.join([str(p) for p in params])},{machine_id},{variation},{n_threads},{predicted_ranking[i][3]},{benchmark_ranking[i][0]},{benchmark_ranking[i][1]},{benchmark_ranking[i][2]},{benchmark_ranking[i][4]}\n")
+            output.write(f"{total},{i},{','.join([str(p) for p in params])},{machine_id},{variation},{n_threads},{predicted_ranking[i][3]},{benchmark_ranking[i][0]},{benchmark_ranking[i][1]},{benchmark_ranking[i][2]},{benchmark_ranking[i][3]}\n")
                 
         
         # If they aren't, let the user know
@@ -188,7 +188,7 @@ def main(models_path, csv_files, output_path, show_all, show_none):
                 text = f"   {i + 1}) {predicted_ranking[i][0].upper()} ({n_threads} thread{'' if n_threads == 1 else 's'}) with {predicted_ranking[i][1].upper()} ({predicted_ranking[i][3]:.4f}s)"
                 text += " " * (line_size - len(text)) + " VS "
                 n_threads = benchmark_ranking[i][2]
-                text += f"   {i + 1}) {benchmark_ranking[i][0].upper()} ({n_threads} thread{'' if n_threads == 1 else 's'}) with {benchmark_ranking[i][1].upper()} ({benchmark_ranking[i][4]:.4f}s)"
+                text += f"   {i + 1}) {benchmark_ranking[i][0].upper()} ({n_threads} thread{'' if n_threads == 1 else 's'}) with {benchmark_ranking[i][1].upper()} ({benchmark_ranking[i][3]:.4f}s)"
                 print(text)
             print("")
 

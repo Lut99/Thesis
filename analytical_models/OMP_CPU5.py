@@ -35,12 +35,11 @@ def t_bh_delta(t_params, p, p1):
 
 
 # Use what we can from sequential, but take different pi's and beta's into account
-def predict(sample_parameters, machine_parameters):
-    n_threads = int(sample_parameters[0])
-    L = int(sample_parameters[1]) + 2
-    P = [int(sample_parameters[5])] + [int(sample_parameters[2])] * (L - 2) + [int(sample_parameters[6])]
-    N = int(sample_parameters[3])
-    S = int(sample_parameters[4])
+def predict(sample_parameters, machine_parameters, n_threads):
+    L = int(sample_parameters[0]) + 2
+    P = [int(sample_parameters[4])] + [int(sample_parameters[1])] * (L - 2) + [int(sample_parameters[5])]
+    N = int(sample_parameters[2])
+    S = int(sample_parameters[3])
 
     # Copy the list of machine parameters and normalize to flops and bytes, not GFLOPs and GBYTES
     m_params = {n_cores: [elem * 1000000000 for elem in machine_parameters[n_cores]] for n_cores in machine_parameters}
