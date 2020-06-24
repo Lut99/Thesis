@@ -20,7 +20,7 @@ DEFAULT_CSV = "benchmark_results.csv"
 DEFAULT_MODEL_FOLDER = "analytical_models/"
 DEFAULT_OUTPUT_FILE = "rankings.csv"
 
-# Fill in the machine performance data please (as (preak_performance, n_cores, n_avx_elements, peak_mem_bandwidth)) The bandwidth is over a single core.
+# Fill in the machine performance data please (as (peak_performance, peak_bandwidth, peak_performance_avx, peak_bandwidth_avx)) The bandwidth is over a single core.
 # NOTE: hall GFLOP/s from https://www.intel.com/content/dam/support/us/en/documents/processors/APP-for-Intel-Core-Processors.pdf
 # NOTE: all GB/s obtained with LIKWID (copy or copy-avx, 1GB load).
 # NOTE: First two are non-simd, second two are yes-simd
