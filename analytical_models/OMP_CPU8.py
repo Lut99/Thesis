@@ -13,7 +13,6 @@ import sequential
 # FORWARD PASS
 def t_fwd(m_params, n_threads, L, P):
     result = 0
-    print(m_params)
     for l in range(1, L):
         result += P[l] * (sequential.t_f_sum(m_params[n_threads][2], m_params[n_threads][3], P[l - 1]) + sequential.t_f_act(m_params[n_threads][0], m_params[n_threads][1]))
     return result

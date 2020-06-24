@@ -111,13 +111,13 @@ def predict(sample_parameters, machine_parameters, n_threads):
     N = int(sample_parameters[2])
     S = int(sample_parameters[3])
 
-    pi = machine_parameters[n_threads][0] * 1000000000
-    beta = machine_parameters[n_threads][1] * 1000000000
+    pi = machine_parameters[1][0] * 1000000000
+    beta = machine_parameters[1][1] * 1000000000
 
     fwd_time = t_fwd(pi, beta, L, P)
-    bck_out_time = t_bck_out(pi, beta, L, P)
-    bck_hid_time = t_bck_hid(pi, beta, L, P)
-    updates_time = t_updates(pi, beta, L, P)
+    bck_out_time = 0#t_bck_out(pi, beta, L, P)
+    bck_hid_time = 0#t_bck_hid(pi, beta, L, P)
+    updates_time = 0#t_updates(pi, beta, L, P)
     total_time = N * (S * (fwd_time + bck_out_time + bck_hid_time) + updates_time)
 
     return [total_time, fwd_time, bck_out_time, bck_hid_time, updates_time]

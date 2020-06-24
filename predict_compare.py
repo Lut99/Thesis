@@ -24,6 +24,7 @@ DEFAULT_OUTPUT_FILE = "rankings.csv"
 # NOTE: hall GFLOP/s from https://www.intel.com/content/dam/support/us/en/documents/processors/APP-for-Intel-Core-Processors.pdf
 # NOTE: all GB/s obtained with LIKWID (copy or copy-avx, 1GB load).
 # NOTE: First two are non-simd, second two are yes-simd
+# NOTE: GPU Stats from https://www.techpowerup.com/gpu-specs/geforce-rtx-2080.c3224 and https://www.techpowerup.com/gpu-specs/geforce-gtx-titan-x.c2632; beta_C_G is from https://www.gamersnexus.net/guides/2488-pci-e-3-x8-vs-x16-performance-impact-on-gpus
 MACHINES = {
     "home_desktop": {
         1: (7.2, 14.93606, 28.8, 14.33228),
@@ -31,7 +32,8 @@ MACHINES = {
         4: (28.8, 16.50343, 115.2, 17.38215),
         8: (57.6, 16.94652, 230.4, 17.19413),
         16: (115.2, 17.09865, 460.8, 17.09826),
-        32: (115.2, 17.01528, 460.8, 17.18359)
+        32: (115.2, 17.01528, 460.8, 17.18359),
+        "GPU": (314.6, 448, 15.760)
     },
     "DAS5_1numa": {
         1: (2.4, 11.53074, 9.6, 11.42862),
@@ -47,7 +49,8 @@ MACHINES = {
         4: (9.6, 24.99948, 38.4, 24.37255),
         8: (19.2, 45.96919, 76.8, 41.58752),
         16: (38.4, 60.74498, 153.6, 55.02765),
-        32: (76.8, 62.18000, 307.2, 56.00466)
+        32: (76.8, 62.18000, 307.2, 56.00466),
+        "GPU": (209.1, 336.6, 15.760)
     },
     "macbook": {
         1: (5.8, 11.16392, 11.6, 11.26597),

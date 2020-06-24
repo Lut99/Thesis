@@ -4,7 +4,7 @@
  * Created:
  *   5/25/2020, 9:30:27 PM
  * Last edited:
- *   6/22/2020, 10:53:19 PM
+ *   6/24/2020, 8:35:22 PM
  * Auto updated?
  *   Yes
  *
@@ -1151,10 +1151,13 @@ extern "C" void nn_train(neural_net* nn, size_t n_samples, double** inputs, doub
 /***** OTHER TOOLS *****/
 
 extern "C" void parse_opt_args(int argc, char** argv) {
-    // Parse threads per block as first argument
-    if (argc >= 1) {
-        threads_per_block = atoi(argv[0]);
-    }
+    // // Parse threads per block as first argument
+    // if (argc >= 1) {
+    //     threads_per_block = atoi(argv[0]);
+    // }
+    // Do nothing instead
+    (void) argc;
+    (void) argv;
 }
 
 extern "C" void print_opt_args() {

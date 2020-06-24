@@ -8,7 +8,7 @@
 
 
 # Use what we can from sequential, but take different pi's and beta's into account
-def predict(sample_parameters, machine_parameters):
+def predict(sample_parameters, machine_parameters, n_threads):
     print("WARNING: Using removed model for OpenMP 6")
 
     return [-1, -1, -1, -1, -1]
