@@ -63,11 +63,12 @@ MACHINES = {
 }
 
 
-def main(models_path, csv_files, output_path, show_all, show_none):
+def main(models_path, csv_files, output_path, filter_threads, show_all, show_none):
     print("\n### PREDICTION TOOL for ANALYTICAL MODELS ###\n")
 
     print(f"Tool configuration:")
     print(f" - Models folder       : {models_path}")
+    if len(filter_threads) > 0: print(f" - Threads to display  : {', '.join(filter_threads)}")
     print(f" - Benchmark datafiles :")
     for csv in csv_files:
         print(f"    - '{csv}'")
@@ -103,6 +104,8 @@ def main(models_path, csv_files, output_path, show_all, show_none):
     for i, row in data.iterrows():
         # Get the parameter set as tuple
         hw_imp_pair = tuple(row.iloc[0:2]) + tuple([row.iloc[3]])
+        # Stop if not filtered out
+        if len(filter_threads) > 0 and str(hw_imp_pair[2]) not in filter_threads: continue
         parameter_set = tuple(row.iloc[4:10])
         if parameters[parameter_set][hw_imp_pair]["n"] == 0:
             parameters[parameter_set][hw_imp_pair]["data"] = np.array(row.iloc[10:])
@@ -116,6 +119,10 @@ def main(models_path, csv_files, output_path, show_all, show_none):
         } for params in parameters
     }
     print("Done\n")
+
+    if len(parameters) == 0:
+        print("Nothing to do.\n")
+        return 0
 
     print("Opening output file... ", end="")
     try:
@@ -244,6 +251,7 @@ if __name__ == "__main__":
     parser.add_argument("-M", "--models", default=DEFAULT_MODEL_FOLDER, required=False, help=f"Path to the folder containing the model implementations. (Default: {DEFAULT_MODEL_FOLDER})")
     parser.add_argument("-a", "--all", action="store_true", help="If given, displays all rankings instead of just the incorrect ones.")
     parser.add_argument("-s", "--silent", action="store_true", help="If given, displays no rankings at all (overrides --all).")
+    parser.add_argument("-t", "--threads", default=[], nargs='+', help="The numbers of threads to keep. All other n_threads will be filtered out. If omitted, displays all threads")
 
     args = parser.parse_args()
     
@@ -276,4 +284,4 @@ if __name__ == "__main__":
         exit(-1)
 
     # So far so good, let's run main
-    exit(main(args.models, csvs, args.output, args.all, args.silent))
+    exit(main(args.models, csvs, args.output, args.threads, args.all, args.silent))
