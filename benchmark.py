@@ -218,9 +218,9 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
         is_cpu = "cpu" in variation.lower()
         is_gpu = "gpu" in variation.lower()
 
-        if is_seq:
+        if is_seq or variation.lower() == "omp_cpu4":
             seqs.append(variation)
-        if is_cpu:
+        if is_cpu and variation.lower() != "omp_cpu4":
             cpus.append(variation)
         if is_gpu:
             gpus.append(variation)
@@ -269,7 +269,9 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
                 print(f"       > Varying: {header}")
 
                 # Run the varyer for the current parameter
-                vary_param(machine_ID, output, seq, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                #vary_param(machine_ID, output, seq, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                run_benchmark(machine_ID, output, seq, iterations, param_set, das_reservation)
+                break
 
             print("      Done")
         print("Done\n")
@@ -306,7 +308,9 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
                     print(f"       > Varying: {header} (num_threads = {n_threads})")
 
                     # Run the varyer for the current parameter
-                    vary_param(machine_ID, output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                    #vary_param(machine_ID, output, cpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                    run_benchmark(machine_ID, output, cpu, iterations, param_set, das_reservation)
+                break
             print("      Done")
         print("Done\n")
 
@@ -341,7 +345,9 @@ def main(machine_ID, outputpath, variations, iterations, das_reservation, args):
                 print(f"       > Varying: {header}")
 
                 # Run the varyer for the current parameter
-                vary_param(machine_ID, output, gpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                #vary_param(machine_ID, output, gpu, iterations, param_set, header, getattr(args, HEADER_PARAM_MAP[header]), das_reservation)
+                run_benchmark(machine_ID, output, gpu, iterations, param_set, das_reservation)
+                break
             print("      Done")
         print("Done\n")
 
